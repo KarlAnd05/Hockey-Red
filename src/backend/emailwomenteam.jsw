@@ -1,0 +1,14 @@
+import {sendWithService} from 'backend/sendGrid';
+
+export function sendEmail(subject, body) {
+  const key = "REMOVED_SENDGRID_API_KEY";
+  const sender = "info@lebanonhockey.com";
+  const recipient = "erin.tabah@lebanonhockey.com";
+  return sendWithService(key, sender, recipient, subject, body);
+}
+
+export function sendEmailWithRecipient(subject, body, recipient) {
+  const key = "REMOVED_SENDGRID_API_KEY";
+  const sender = "info@lebanonhockey.com";
+  return sendWithService(key, sender, recipient, subject, body);
+}

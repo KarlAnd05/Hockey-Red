@@ -3,3 +3,11 @@ node_modules/
 .idea/
 .vs/
 *.log
+
+# Secrets — never commit
+.env
+.env.local
+
+# Runtime data
+data/
+invoices/

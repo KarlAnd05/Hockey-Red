@@ -1,6 +1,21 @@
 {
+  "name": "lebanon-hockey",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Lebanese Ice Hockey Federation — site, store, and admin",
   "scripts": {
-    "dev": "node scripts/serve-frontend.mjs",
-    "start": "node scripts/serve-frontend.mjs"
+    "dev": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env server/index.js",
+    "start": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env server/index.js",
+    "create-admin": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/create-admin.mjs",
+    "smoke": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/smoke-test.mjs"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "pdfkit": "^0.20.2",
+    "stripe": "^22.6.1"
   }
 }

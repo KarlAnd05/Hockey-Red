@@ -1,9 +1,18 @@
 import { Router } from 'express';
+import { randomBytes } from 'node:crypto';
 import { db } from '../db.js';
 import { config } from '../config.js';
 import { hashPassword, verifyPassword, validatePassword } from '../lib/password.js';
-import { loginSession, logoutSession, requireAuth, rateLimit } from '../middleware/auth.js';
-import { getOrCreateCart, cartCount, mergeGuestCart } from '../lib/cart.js';
+import {
+  loginSession,
+  logoutSession,
+  requireAuth,
+  rateLimit,
+  ensureSession,
+  hashToken,
+} from '../middleware/auth.js';
+import { findCart, cartCount, mergeGuestCart } from '../lib/cart.js';
+import { sendContactNotification, sendPasswordResetEmail } from '../lib/notifications.js';
 
 export const authRouter = Router();
 
@@ -27,18 +36,31 @@ function normaliseEmail(value) {
 }
 
 /* --------------------------------------------------------------------------
-   Session bootstrap - drives the header, CSRF token, and cart badge
+   Session bootstrap - drives the header and cart badge
+   --------------------------------------------------------------------------
+   Read-only on purpose: this runs on every page load, and it must not set a
+   cookie or write a cart row for a visitor who is only reading. A CSRF token
+   comes back only if a session already exists; otherwise the client asks for
+   one from /api/csrf when it is about to write.
    -------------------------------------------------------------------------- */
 authRouter.get('/session', (req, res) => {
-  const cart = getOrCreateCart(req);
+  const cart = findCart(req);
 
   res.json({
     user: publicUser(req.user),
-    csrfToken: req.sessionRecord?.csrf_token || '',
+    csrfToken: req.sessionRecord?.csrf_token || null,
     cartCount: cartCount(cart?.id),
     stripePublishableKey: config.stripePublishableKey,
     currency: config.currency,
   });
+});
+
+/* --------------------------------------------------------------------------
+   CSRF token - the first point at which a visitor is given a cookie
+   -------------------------------------------------------------------------- */
+authRouter.get('/csrf', (req, res) => {
+  const session = ensureSession(req, res);
+  res.json({ csrfToken: session.csrf_token });
 });
 
 /* --------------------------------------------------------------------------
@@ -183,15 +205,107 @@ authRouter.post(
       return res.status(400).json({ error: 'Enter a valid email address.' });
     }
 
+    const message = {
+      firstName: String(req.body?.firstName || '').trim().slice(0, 120),
+      lastName: String(req.body?.lastName || '').trim().slice(0, 120),
+      email,
+      message: String(req.body?.message || '').trim().slice(0, 4000),
+    };
+
     db.prepare(
       'INSERT INTO contact_messages (first_name, last_name, email, message) VALUES (?, ?, ?, ?)'
-    ).run(
-      String(req.body?.firstName || '').trim().slice(0, 120),
-      String(req.body?.lastName || '').trim().slice(0, 120),
-      email,
-      String(req.body?.message || '').trim().slice(0, 4000)
+    ).run(message.firstName, message.lastName, message.email, message.message);
+
+    // Answer immediately; the notification is best-effort and must not make the
+    // visitor wait on an SMTP round trip.
+    res.status(201).json({ ok: true });
+    sendContactNotification(message);
+  }
+);
+
+/* ==========================================================================
+   Password reset
+   ========================================================================== */
+
+/**
+ * Request a reset link.
+ *
+ * Always answers 200 with the same body whether or not the address exists, so
+ * this endpoint cannot be used to discover which emails have accounts.
+ */
+authRouter.post(
+  '/auth/forgot',
+  rateLimit({ max: 6, windowMs: 15 * 60 * 1000, key: 'forgot' }),
+  async (req, res) => {
+    const email = normaliseEmail(req.body?.email);
+    const generic = { ok: true, message: 'If that email has an account, a reset link is on its way.' };
+
+    if (!EMAIL_RE.test(email)) {
+      return res.status(400).json({ error: 'Enter a valid email address.' });
+    }
+
+    const user = db.prepare('SELECT id, email FROM users WHERE email = ?').get(email);
+    if (!user) return res.json(generic);
+
+    // One live token at a time per account.
+    db.prepare('DELETE FROM password_resets WHERE user_id = ? AND used_at IS NULL').run(user.id);
+
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000)
+      .toISOString()
+      .replace('T', ' ')
+      .slice(0, 19);
+
+    db.prepare(
+      'INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, ?)'
+    ).run(user.id, hashToken(token), expiresAt);
+
+    await sendPasswordResetEmail(
+      user,
+      `${config.appUrl}/reset-password.html?token=${token}`
     );
 
-    res.status(201).json({ ok: true });
+    res.json(generic);
+  }
+);
+
+/**
+ * Consume a reset token and set the new password.
+ */
+authRouter.post(
+  '/auth/reset',
+  rateLimit({ max: 10, windowMs: 15 * 60 * 1000, key: 'reset' }),
+  (req, res) => {
+    const token = String(req.body?.token || '');
+    const password = String(req.body?.password || '');
+
+    const passwordError = validatePassword(password);
+    if (passwordError) return res.status(400).json({ error: passwordError });
+
+    const row = token
+      ? db
+          .prepare(
+            `SELECT * FROM password_resets
+             WHERE token_hash = ? AND used_at IS NULL AND expires_at > datetime('now')`
+          )
+          .get(hashToken(token))
+      : null;
+
+    if (!row) {
+      return res.status(400).json({ error: 'That reset link is invalid or has expired.' });
+    }
+
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(
+      hashPassword(password),
+      row.user_id
+    );
+
+    db.prepare("UPDATE password_resets SET used_at = datetime('now') WHERE id = ?").run(row.id);
+
+    // Anyone already holding a session for this account is signed out, which is
+    // the point of a reset when the account may have been compromised.
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(row.user_id);
+
+    res.json({ ok: true });
   }
 );

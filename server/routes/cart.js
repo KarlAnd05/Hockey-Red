@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db.js';
-import { getOrCreateCart, getCartDetail } from '../lib/cart.js';
+import { getOrCreateCart, getCartDetail, findCart } from '../lib/cart.js';
+import { ensureSession } from '../middleware/auth.js';
 import { isDiscountUsable } from '../lib/money.js';
 
 export const cartRouter = Router();
@@ -14,13 +15,15 @@ function respond(req, res, discountCode = '') {
    Read
    -------------------------------------------------------------------------- */
 cartRouter.get('/cart', (req, res) => {
-  respond(req, res, String(req.query.discount || ''));
+  // Read-only: never creates a cart or a session.
+  res.json(getCartDetail(findCart(req)?.id, String(req.query.discount || '')));
 });
 
 /* --------------------------------------------------------------------------
    Add
    -------------------------------------------------------------------------- */
 cartRouter.post('/cart/items', (req, res) => {
+  ensureSession(req, res);
   const cart = getOrCreateCart(req);
   if (!cart) return res.status(400).json({ error: 'Could not open a cart.' });
 
@@ -78,6 +81,7 @@ cartRouter.post('/cart/items', (req, res) => {
    Update quantity
    -------------------------------------------------------------------------- */
 cartRouter.patch('/cart/items/:id', (req, res) => {
+  ensureSession(req, res);
   const cart = getOrCreateCart(req);
   const quantity = Math.max(0, Math.min(Number(req.body?.quantity) || 0, 99));
 

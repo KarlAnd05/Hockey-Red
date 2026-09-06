@@ -35,6 +35,22 @@ export const config = {
   shippingFlatCents: Number(process.env.SHIPPING_FLAT_CENTS || 1500),
   freeShippingThresholdCents: Number(process.env.FREE_SHIPPING_THRESHOLD_CENTS || 20000),
   taxRate: Number(process.env.TAX_RATE || 0),
+
+  /* --- Email ------------------------------------------------------------ */
+  smtp: {
+    host: process.env.SMTP_HOST || '',
+    port: Number(process.env.SMTP_PORT || 587),
+    // Port 465 is implicit TLS; 587 upgrades with STARTTLS.
+    secure: process.env.SMTP_SECURE
+      ? process.env.SMTP_SECURE === 'true'
+      : Number(process.env.SMTP_PORT || 587) === 465,
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+  },
+  mailFrom: process.env.MAIL_FROM || 'Lebanon Hockey <info@lebanonhockey.com>',
+  // Where new-order and contact notifications go.
+  mailAdmin:
+    (process.env.MAIL_ADMIN || process.env.ADMIN_EMAIL || '').trim().toLowerCase(),
 };
 
 export const stripeEnabled = Boolean(config.stripeSecretKey);

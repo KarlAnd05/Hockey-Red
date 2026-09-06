@@ -39,9 +39,8 @@ function shell({ file, title, description, active, body, scripts = [], bodyClass
     <meta name="description" content="${description}">
     <title>${title}</title>
     <link rel="icon" href="./assets/LIHF-01_edited.png" type="image/png">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preload" href="./assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="./assets/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="./assets/styles.css">
     <link rel="stylesheet" href="./assets/store.css">
   </head>
@@ -127,6 +126,11 @@ ${body}
       </div>
       <div class="footer-bottom">
         <p>&copy; 2026 Lebanese Ice Hockey Federation. All rights reserved.</p>
+        <nav class="footer-legal" aria-label="Legal">
+          <a href="privacy.html">Privacy</a>
+          <a href="cookies.html">Cookies</a>
+          <a href="refund-policy.html">Refunds &amp; Returns</a>
+        </nav>
         <p>1418 Victoria Avenue, Suite 110, Greenfield Park, Quebec J4V 1M1</p>
       </div>
     </footer>
@@ -342,6 +346,11 @@ pages.push({
 
               <button type="submit" class="button primary block">Pay securely</button>
               <p class="form-status" data-checkout-status role="status"></p>
+              <p style="margin:0;font-size:13px;color:var(--muted);line-height:1.6">
+                You are sent to Stripe to pay; card details never reach our servers.
+                By ordering you accept our <a href="refund-policy.html" style="color:var(--red);font-weight:700">refund policy</a>
+                &mdash; 30 days to return unworn items, personalized items final sale.
+              </p>
             </form>
 
             <aside class="summary-panel" data-checkout-summary aria-label="Order summary"></aside>
@@ -393,6 +402,10 @@ pages.push({
             <button type="submit" class="button primary block">Sign in</button>
             <p class="form-status" role="status"></p>
           </form>
+
+          <p style="margin:var(--s-4) 0 0;text-align:center;font-size:14px">
+            <a href="forgot-password.html" style="color:var(--muted);font-weight:700">Forgot your password?</a>
+          </p>
 
           <p class="auth-alt">
             New here? <a href="register.html">Create an account</a>
@@ -534,6 +547,521 @@ pages.push({
         </div>
       </section>`,
 });
+
+/* ==========================================================================
+   Forgot password
+   ========================================================================== */
+pages.push({
+  file: 'forgot-password.html',
+  title: 'Reset Your Password · Lebanon Hockey',
+  description: 'Request a password reset link for your Lebanon Hockey account.',
+  active: '',
+  scripts: ['account.js'],
+  body: `      <section class="auth-layout">
+        <div class="auth-card">
+          <p class="eyebrow">Members</p>
+          <h1>Forgot Password</h1>
+          <p>Enter your email and we will send you a link to choose a new password. The link is valid for one hour.</p>
+
+          <form data-forgot-form novalidate>
+            <label>
+              Email
+              <input type="email" name="email" autocomplete="email" required autofocus>
+            </label>
+            <button type="submit" class="button primary block">Send reset link</button>
+            <p class="form-status" role="status"></p>
+          </form>
+
+          <p class="auth-alt">
+            Remembered it? <a href="login.html">Back to sign in</a>
+          </p>
+        </div>
+      </section>`,
+});
+
+/* ==========================================================================
+   Reset password
+   ========================================================================== */
+pages.push({
+  file: 'reset-password.html',
+  title: 'Choose a New Password · Lebanon Hockey',
+  description: 'Set a new password for your Lebanon Hockey account.',
+  active: '',
+  scripts: ['account.js'],
+  body: `      <section class="auth-layout">
+        <div class="auth-card">
+          <p class="eyebrow">Members</p>
+          <h1>New Password</h1>
+          <p>Choose a new password for your account. You will be signed out everywhere else.</p>
+
+          <form data-reset-form novalidate>
+            <label>
+              New password
+              <input type="password" name="password" autocomplete="new-password" minlength="8" required autofocus>
+            </label>
+            <label>
+              Confirm new password
+              <input type="password" name="confirmPassword" autocomplete="new-password" minlength="8" required>
+            </label>
+            <button type="submit" class="button primary block">Save new password</button>
+            <p class="form-status" role="status"></p>
+          </form>
+
+          <p class="auth-alt">
+            <a href="login.html">Back to sign in</a>
+          </p>
+        </div>
+      </section>`,
+});
+
+/* ==========================================================================
+   Legal pages
+   ========================================================================== */
+const LEGAL_UPDATED = 'Last updated: 6 September 2026';
+
+function legalPage({ file, title, description, heading, lead, body }) {
+  return {
+    file,
+    title: `${title} · Lebanon Hockey`,
+    description,
+    active: '',
+    body: `      <section class="hero page-hero" style="min-height:34vh">
+        <div class="hero-content">
+          <div class="hero-badge">
+            <span class="dot" aria-hidden="true"></span>
+            <p class="eyebrow">Legal</p>
+          </div>
+          <h1>${heading}</h1>
+          <p>${lead}</p>
+        </div>
+      </section>
+
+      <section class="page-section">
+        <div class="legal">
+          <p class="updated">${LEGAL_UPDATED}</p>
+${body}
+        </div>
+      </section>`,
+  };
+}
+
+pages.push(
+  legalPage({
+    file: 'privacy.html',
+    title: 'Privacy Policy',
+    description:
+      'How the Lebanese Ice Hockey Federation collects, uses, and protects your personal information.',
+    heading: 'Privacy <span class="accent">Policy</span>',
+    lead: 'What we collect, why we collect it, and the control you have over it.',
+    body: `          <p>
+            This policy explains how the <strong>Lebanese Ice Hockey Federation</strong> ("Lebanon Hockey",
+            "we", "us") handles personal information collected through
+            <a href="index.html">lebanonhockey.com</a> and its online shop.
+          </p>
+          <p>
+            We are based in Quebec, Canada. We follow Quebec's <em>Act respecting the protection of personal
+            information in the private sector</em> (as amended by Law&nbsp;25) and Canada's
+            <em>Personal Information Protection and Electronic Documents Act</em> (PIPEDA).
+          </p>
+
+          <h2>1. Who is responsible</h2>
+          <p>
+            The federation is responsible for the personal information under its control. Our Privacy Officer
+            can be reached at
+            <a href="mailto:info@lebanonhockey.com">info@lebanonhockey.com</a> or by post at
+            1418 Victoria Avenue, Suite 110, Greenfield Park, Quebec J4V 1M1, Canada.
+          </p>
+
+          <h2>2. What we collect</h2>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th>Information</th><th>When</th><th>Why</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Email address, password (stored only as a cryptographic hash)</td>
+                  <td>When you create an account</td>
+                  <td>To identify you and secure your account</td>
+                </tr>
+                <tr>
+                  <td>Name, phone number</td>
+                  <td>Account profile, checkout</td>
+                  <td>To address you and contact you about an order</td>
+                </tr>
+                <tr>
+                  <td>Shipping address</td>
+                  <td>At checkout</td>
+                  <td>To deliver your order and print your invoice</td>
+                </tr>
+                <tr>
+                  <td>Order and invoice history</td>
+                  <td>When you buy something</td>
+                  <td>To fulfil the order and meet tax record-keeping obligations</td>
+                </tr>
+                <tr>
+                  <td>Messages you send us</td>
+                  <td>Contact form</td>
+                  <td>To answer your enquiry</td>
+                </tr>
+                <tr>
+                  <td>IP address and basic request logs</td>
+                  <td>Automatically</td>
+                  <td>Security, abuse prevention, and rate limiting</td>
+                </tr>
+                <tr>
+                  <td>A single session cookie (<code>lh_sid</code>)</td>
+                  <td>Only once you use the cart, sign in, or submit a form</td>
+                  <td>To keep you signed in and remember your cart. See the
+                      <a href="cookies.html">Cookie Policy</a>.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout">
+            <p>
+              <strong>We never see your card details.</strong> Payments are handled entirely on Stripe's own
+              hosted checkout page. Card numbers, expiry dates, and security codes are never sent to, processed
+              by, or stored on our servers.
+            </p>
+          </div>
+
+          <h2>3. What we do not do</h2>
+          <ul>
+            <li>We do not sell, rent, or trade your personal information.</li>
+            <li>We do not use advertising or analytics trackers, and we do not profile you.</li>
+            <li>We do not send marketing email. The only messages we send are transactional:
+                order confirmations, invoices, password resets, and replies to your enquiries.</li>
+            <li>We do not load fonts, scripts, or images from third-party servers, so browsing the site does
+                not disclose your visit to anyone else.</li>
+          </ul>
+
+          <h2>4. Who we share information with</h2>
+          <p>We use a small number of service providers, and only for the purposes below:</p>
+          <dl>
+            <dt>Stripe Inc. (United States) — payment processing</dt>
+            <dd>
+              Receives your email address, order amount, and the card details you enter directly on their
+              page. Stripe acts as an independent controller for payment data under its own
+              privacy policy.
+            </dd>
+            <dt>Our email provider — transactional email</dt>
+            <dd>Receives your email address and the contents of the message being sent to you.</dd>
+          </dl>
+          <p>
+            We may also disclose information where required by law, or to establish or defend a legal claim.
+          </p>
+
+          <h2>5. Information stored outside Quebec</h2>
+          <p>
+            Stripe and our email provider process data in the United States and other countries, which means
+            some of your information is stored or handled outside Quebec. Those jurisdictions may not offer
+            protections equivalent to Quebec law. We rely on these providers' contractual commitments and
+            security certifications, and we assess this before entrusting them with personal information, as
+            Law&nbsp;25 requires. Order records, invoices, and account data that we hold ourselves remain on our
+            own server.
+          </p>
+
+          <h2>6. How long we keep it</h2>
+          <ul>
+            <li><strong>Orders and invoices</strong> — six years after the transaction, to meet Canada Revenue
+                Agency record-keeping requirements.</li>
+            <li><strong>Account details</strong> — until you ask us to delete the account.</li>
+            <li><strong>Sessions</strong> — 30 days, or until you sign out.</li>
+            <li><strong>Password reset links</strong> — one hour, and they can be used only once.</li>
+            <li><strong>Contact messages</strong> — until your enquiry is resolved, then up to 12 months.</li>
+          </ul>
+
+          <h2>7. How we protect it</h2>
+          <ul>
+            <li>The whole site is served over HTTPS in production.</li>
+            <li>Passwords are stored using <code>scrypt</code> with a unique salt for each account. We cannot
+                read your password, and neither can anyone who obtains the database.</li>
+            <li>Session tokens are stored hashed, are rotated when you sign in, and can be revoked.</li>
+            <li>Administrative pages are restricted to accounts holding the admin role.</li>
+          </ul>
+          <p>
+            If a confidentiality incident occurs that presents a risk of serious injury, we will notify you and
+            the <em>Commission d'accès à l'information</em> as Law&nbsp;25 requires, and record it in our incident
+            register.
+          </p>
+
+          <h2>8. Your rights</h2>
+          <p>You may ask us at any time to:</p>
+          <ul>
+            <li><strong>Access</strong> the personal information we hold about you.</li>
+            <li><strong>Correct</strong> anything inaccurate or incomplete. You can edit your name, phone, and
+                password yourself from <a href="account.html">your account</a>.</li>
+            <li><strong>Delete</strong> your account and personal information, except records we must keep for
+                tax purposes.</li>
+            <li><strong>Withdraw consent</strong> to a use you previously agreed to.</li>
+            <li><strong>Receive a copy</strong> of the information you gave us in a structured, commonly used
+                technical format (data portability under Law&nbsp;25).</li>
+          </ul>
+          <p>
+            Write to <a href="mailto:info@lebanonhockey.com">info@lebanonhockey.com</a> and we will respond
+            within 30 days. If you are not satisfied with our answer, you may complain to the
+            <strong>Commission d'accès à l'information du Québec</strong> or to the
+            <strong>Office of the Privacy Commissioner of Canada</strong>.
+          </p>
+
+          <h2>9. Automated decisions and profiling</h2>
+          <p>
+            We do not make decisions about you by automated means, and we do not build profiles of you.
+          </p>
+
+          <h2>10. Children</h2>
+          <p>
+            Our shop is intended for adults. Youth programs are registered by a parent or guardian, who
+            provides any information about a minor and consents to its use on the child's behalf.
+          </p>
+
+          <h2>11. If you are in the EEA or the UK</h2>
+          <p>
+            We are not established in Europe and do not target visitors there, but if you contact us from the
+            EEA or the UK you may still ask us to access, correct, erase, or port your data, and to restrict or
+            object to processing. Where we process your information it is because it is necessary to perform a
+            contract with you (your order), to comply with a legal obligation (tax records), or for our
+            legitimate interest in keeping the site secure.
+          </p>
+
+          <h2>12. Changes</h2>
+          <p>
+            If we change this policy we will update the date at the top of this page, and for significant
+            changes we will say so on the site.
+          </p>
+
+          <div class="note">
+            <p>
+              <strong>Questions?</strong> Email
+              <a href="mailto:info@lebanonhockey.com">info@lebanonhockey.com</a> and a person will answer you.
+            </p>
+          </div>`,
+  }),
+
+  legalPage({
+    file: 'cookies.html',
+    title: 'Cookie Policy',
+    description: 'The cookies Lebanon Hockey uses, why there is no cookie banner, and how to control them.',
+    heading: 'Cookie <span class="accent">Policy</span>',
+    lead: 'We use exactly one cookie, and only when you actually need it.',
+    body: `          <p>
+            A cookie is a small file a website asks your browser to store. This page lists every cookie
+            Lebanon Hockey uses and what each one does.
+          </p>
+
+          <div class="callout">
+            <p>
+              <strong>We use one cookie, and no tracking of any kind.</strong> There are no analytics cookies,
+              no advertising cookies, no social media pixels, and no third-party scripts on this site.
+            </p>
+          </div>
+
+          <h2>The cookie we use</h2>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th>Name</th><th>Purpose</th><th>Set when</th><th>Expires</th><th>Type</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>lh_sid</code></td>
+                  <td>
+                    Identifies your browsing session so we can remember what is in your cart, keep you signed
+                    in, and protect forms against cross-site request forgery.
+                  </td>
+                  <td>
+                    Only when you first add something to the cart, sign in, register, or submit a form. Simply
+                    reading pages sets no cookie at all.
+                  </td>
+                  <td>30 days, or immediately when you sign out</td>
+                  <td>First-party, strictly necessary, <code>HttpOnly</code>, <code>SameSite=Lax</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            The cookie holds a random identifier only. It contains no personal information, and it cannot be
+            read by JavaScript or by any other website.
+          </p>
+
+          <h2>Why there is no cookie banner</h2>
+          <p>
+            Consent banners exist because of cookies that track you. Ours does not: <code>lh_sid</code> is
+            strictly necessary to deliver a service you have explicitly asked for — keeping your cart, or
+            keeping you signed in — and cookies of that kind are recognised as exempt from prior consent under
+            Quebec's Law&nbsp;25 and comparable rules elsewhere.
+          </p>
+          <p>
+            We have also deliberately delayed it: the cookie is issued only at the moment you do something that
+            needs it. If you browse the site and never use the cart or sign in, no cookie is ever set.
+          </p>
+          <p>
+            If we ever add analytics or any other non-essential cookie, we will ask for your consent first and
+            this page will change.
+          </p>
+
+          <h2>Cookies set by Stripe during payment</h2>
+          <p>
+            When you check out, we send you to Stripe's own hosted payment page at
+            <code>checkout.stripe.com</code>. Stripe sets its own cookies there for fraud prevention and to
+            operate that page. Those cookies belong to Stripe, are set on Stripe's domain, and are governed by
+            Stripe's privacy policy — we cannot read them. You are returned to our site once payment
+            completes.
+          </p>
+
+          <h2>Similar technologies</h2>
+          <p>
+            The shop uses your browser's <code>sessionStorage</code> to remember a discount code you have typed
+            while you move between the cart and checkout. That information stays on your device, is cleared
+            when you close the tab, and is never sent anywhere except when you apply the code.
+          </p>
+
+          <h2>Controlling cookies</h2>
+          <p>
+            You can delete or block cookies in your browser settings, usually under Privacy or Site Data.
+            Blocking <code>lh_sid</code> will stop the shopping cart and sign-in from working, because the
+            site has no other way to recognise your session. The rest of the site will still work normally.
+          </p>
+
+          <h2>Changes</h2>
+          <p>
+            If the cookies we use change, we will update this page and the date shown at the top.
+          </p>
+
+          <div class="note">
+            <p>
+              Questions about this policy? Email
+              <a href="mailto:info@lebanonhockey.com">info@lebanonhockey.com</a>. See also our
+              <a href="privacy.html">Privacy Policy</a>.
+            </p>
+          </div>`,
+  }),
+
+  legalPage({
+    file: 'refund-policy.html',
+    title: 'Refunds & Returns',
+    description:
+      'Lebanon Hockey refund and return policy: 30 days, unworn with tags, personalized items final sale.',
+    heading: 'Refunds &amp; <span class="accent">Returns</span>',
+    lead: 'Thirty days to change your mind. Faulty goods always put right.',
+    body: `          <div class="callout">
+            <p>
+              <strong>In short:</strong> you have 30 days from delivery to return unworn, unwashed items with
+              their tags attached. Personalized and custom-made items cannot be returned unless they are
+              faulty. If anything arrives damaged or wrong, we cover it in full.
+            </p>
+          </div>
+
+          <h2>1. The return window</h2>
+          <p>
+            You may request a return within <strong>30 days of delivery</strong>. Contact us before sending
+            anything back so we can give you a return reference.
+          </p>
+
+          <h2>2. Condition of returned items</h2>
+          <p>To be accepted, an item must be:</p>
+          <ul>
+            <li>Unworn, unwashed, and free of odour, marks, or damage;</li>
+            <li>In its original packaging with all tags still attached;</li>
+            <li>Accompanied by your order number.</li>
+          </ul>
+          <p>
+            We may refuse a return, or reduce the refund, where an item has been handled more than was
+            necessary to check its size and fit.
+          </p>
+
+          <h2>3. Personalized and custom-made items</h2>
+          <p>
+            Items made or altered to your specification are <strong>final sale</strong> and cannot be returned
+            or exchanged unless they are faulty or we made an error. This includes:
+          </p>
+          <ul>
+            <li>Official Team Lebanon Hockey Jerseys with a name, number, or other personalization;</li>
+            <li>Any other item customised at your request.</li>
+          </ul>
+          <p>
+            Please check your spelling and size carefully before ordering a personalized item. We confirm the
+            details with you before production wherever possible.
+          </p>
+
+          <h2>4. Faulty, damaged, or incorrect items</h2>
+          <p>
+            If an item arrives faulty or damaged, or is not what you ordered, tell us within
+            <strong>14 days of delivery</strong> and send a photograph. We will arrange a full refund or a
+            replacement, whichever you prefer, and <strong>we pay the return shipping</strong>. This applies to
+            personalized items too.
+          </p>
+
+          <h2>5. How to start a return</h2>
+          <ol>
+            <li>
+              Email <a href="mailto:info@lebanonhockey.com">info@lebanonhockey.com</a> with your order number
+              (it looks like <code>LH-2026-00001</code>), the item, and the reason.
+            </li>
+            <li>We reply with a return reference and the address to send it to.</li>
+            <li>Pack the item securely with the reference enclosed and send it back.</li>
+            <li>We inspect it on arrival and confirm your refund by email.</li>
+          </ol>
+          <p>
+            You can find your order number and download your invoice at any time from
+            <a href="account.html">your account</a>.
+          </p>
+
+          <h2>6. Return shipping</h2>
+          <p>
+            For a change of mind, <strong>you pay the return postage</strong>, and we recommend a tracked
+            service — we cannot refund an item that does not reach us. Original shipping charges are not
+            refunded. For faulty or incorrect items, we cover shipping both ways.
+          </p>
+
+          <h2>7. Refund timing and method</h2>
+          <p>
+            Approved refunds are issued to the <strong>original payment method</strong> through Stripe. We
+            process refunds within 3 business days of receiving and inspecting the item, and your bank
+            typically takes a further <strong>5 to 10 business days</strong> to post it. We cannot refund to a
+            different card or account.
+          </p>
+
+          <h2>8. Exchanges</h2>
+          <p>
+            Need a different size? Return the original under the rules above and place a new order — that way
+            you secure your size before it sells out. Tell us it is an exchange and we will not charge
+            shipping on the replacement.
+          </p>
+
+          <h2>9. Items we cannot accept</h2>
+          <ul>
+            <li>Personalized or custom-made items, unless faulty;</li>
+            <li>Items returned more than 30 days after delivery;</li>
+            <li>Items that are worn, washed, damaged, or missing their tags;</li>
+            <li>Gift cards, where offered.</li>
+          </ul>
+
+          <h2>10. Order cancellation</h2>
+          <p>
+            Contact us as soon as possible if you want to cancel. If the order has not entered production or
+            shipping we will cancel it and refund you in full. Personalized items cannot be cancelled once
+            production has begun.
+          </p>
+
+          <h2>11. Your statutory rights</h2>
+          <p>
+            Nothing in this policy limits your rights under Quebec's <em>Consumer Protection Act</em> or other
+            applicable consumer law. Those rights apply in addition to the terms above, including where goods
+            do not match their description or are not fit for their ordinary purpose.
+          </p>
+
+          <div class="note">
+            <p>
+              <strong>Need help with a return?</strong> Email
+              <a href="mailto:info@lebanonhockey.com">info@lebanonhockey.com</a> — we would much rather sort it
+              out than have you stuck with something that does not fit.
+            </p>
+          </div>`,
+  })
+);
 
 pages.forEach((page) => {
   writeFileSync(join(root, page.file), shell(page));

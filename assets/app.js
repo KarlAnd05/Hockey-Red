@@ -463,7 +463,7 @@ contactForm?.addEventListener('submit', async (event) => {
 /* --------------------------------------------------------------------------
    Header session + cart badge
    -------------------------------------------------------------------------- */
-async function syncHeaderState() {
+async function syncHeaderState(force) {
   const cartBadge = document.querySelector('[data-cart-count]');
   const accountLink = document.querySelector('[data-account-link]');
   const adminLink = document.querySelector('[data-admin-link]');
@@ -471,9 +471,10 @@ async function syncHeaderState() {
   if (!cartBadge && !accountLink && !adminLink) return;
 
   try {
-    const response = await fetch('/api/session', { credentials: 'same-origin' });
-    if (!response.ok) return;
-    const data = await response.json();
+    // Reuse the shared loader so the initial page load makes one
+    // /api/session call rather than two; refetch only when the cart changed.
+    const data = await window.LH?.loadSession(force);
+    if (!data) return;
 
     if (cartBadge) {
       const count = data.cartCount || 0;
@@ -500,5 +501,5 @@ async function syncHeaderState() {
   }
 }
 
-syncHeaderState();
-document.addEventListener('cart:changed', syncHeaderState);
+syncHeaderState(false);
+document.addEventListener('cart:changed', () => syncHeaderState(true));

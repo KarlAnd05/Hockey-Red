@@ -10,8 +10,11 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-const FONT_LINK =
-  '<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">';
+// Fonts are self-hosted (see the @font-face block in assets/styles.css), so
+// pages preload the two latin files instead of calling out to Google.
+const FONT_PRELOAD =
+  '    <link rel="preload" href="./assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>\n' +
+  '    <link rel="preload" href="./assets/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>\n';
 
 const HEADER_TOOLS = `
       <div class="header-tools">
@@ -72,6 +75,11 @@ const FOOTER = `    <footer class="site-footer">
       </div>
       <div class="footer-bottom">
         <p>&copy; 2026 Lebanese Ice Hockey Federation. All rights reserved.</p>
+        <nav class="footer-legal" aria-label="Legal">
+          <a href="privacy.html">Privacy</a>
+          <a href="cookies.html">Cookies</a>
+          <a href="refund-policy.html">Refunds &amp; Returns</a>
+        </nav>
         <p>1418 Victoria Avenue, Suite 110, Greenfield Park, Quebec J4V 1M1</p>
       </div>
     </footer>`;
@@ -88,6 +96,11 @@ const SKIP_FILES = new Set([
   'login.html',
   'register.html',
   'account.html',
+  'forgot-password.html',
+  'reset-password.html',
+  'privacy.html',
+  'cookies.html',
+  'refund-policy.html',
 ]);
 
 const files = readdirSync(root).filter((f) => f.endsWith('.html') && !SKIP_FILES.has(f));
@@ -99,13 +112,21 @@ for (const file of files) {
   const before = html;
   const steps = [];
 
-  /* --- Display font ------------------------------------------------------ */
-  if (!html.includes('family=Archivo')) {
+  /* --- Self-hosted fonts -------------------------------------------------- */
+  if (html.includes('fonts.googleapis.com')) {
+    html = html
+      .replace(/[ \t]*<link rel="preconnect" href="https:\/\/fonts\.googleapis\.com">\r?\n/g, '')
+      .replace(/[ \t]*<link rel="preconnect" href="https:\/\/fonts\.gstatic\.com" crossorigin>\r?\n/g, '')
+      .replace(/[ \t]*<link href="https:\/\/fonts\.googleapis\.com\/css2\?[^"]*" rel="stylesheet">\r?\n/g, '');
+    steps.push('drop-google-fonts');
+  }
+
+  if (!html.includes('fonts/archivo-latin.woff2')) {
     html = html.replace(
-      /<link href="https:\/\/fonts\.googleapis\.com\/css2\?family=Manrope[^"]*" rel="stylesheet">/,
-      FONT_LINK
+      /([ \t]*<link rel="stylesheet" href="\.\/assets\/styles\.css">)/,
+      `${FONT_PRELOAD}$1`
     );
-    steps.push('font');
+    steps.push('font-preload');
   }
 
   /* --- Skip link --------------------------------------------------------- */

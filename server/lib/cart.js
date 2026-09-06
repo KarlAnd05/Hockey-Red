@@ -3,10 +3,34 @@ import { config } from '../config.js';
 import { discountAmount, isDiscountUsable } from './money.js';
 
 /**
+ * Look up the cart for this request without creating anything.
+ *
+ * Read paths use this so that merely loading a page never writes a cart row or
+ * forces a session cookie into existence.
+ */
+export function findCart(req) {
+  const userId = req.user?.id ?? null;
+  const sessionHash = req.sessionRecord?.token_hash ?? null;
+
+  if (!userId && !sessionHash) return null;
+
+  return (
+    (userId
+      ? db.prepare('SELECT * FROM carts WHERE user_id = ? ORDER BY id DESC LIMIT 1').get(userId)
+      : db
+          .prepare(
+            'SELECT * FROM carts WHERE session_hash = ? AND user_id IS NULL ORDER BY id DESC LIMIT 1'
+          )
+          .get(sessionHash)) || null
+  );
+}
+
+/**
  * Resolve the cart for the current request, creating one if needed.
  *
  * Carts are keyed by user id when signed in, otherwise by the session hash, so
- * a guest cart survives page loads and can be merged on login.
+ * a guest cart survives page loads and can be merged on login. Callers must
+ * have a session already - run ensureSession() first on write paths.
  */
 export function getOrCreateCart(req) {
   const userId = req.user?.id ?? null;
@@ -14,11 +38,7 @@ export function getOrCreateCart(req) {
 
   if (!userId && !sessionHash) return null;
 
-  let cart = userId
-    ? db.prepare('SELECT * FROM carts WHERE user_id = ? ORDER BY id DESC LIMIT 1').get(userId)
-    : db
-        .prepare('SELECT * FROM carts WHERE session_hash = ? AND user_id IS NULL ORDER BY id DESC LIMIT 1')
-        .get(sessionHash);
+  let cart = findCart(req);
 
   if (!cart) {
     const result = db

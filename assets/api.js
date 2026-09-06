@@ -7,10 +7,14 @@
 
   let session = null;
   let sessionPromise = null;
+  let csrfToken = null;
 
   /**
-   * Fetch the session once and cache it. Carries the CSRF token that every
-   * state-changing request has to echo back.
+   * Fetch the session once and cache it.
+   *
+   * This is read-only on the server: simply loading a page does not create a
+   * session or set a cookie. A CSRF token only comes back if a session already
+   * exists.
    */
   function loadSession(force) {
     if (!force && sessionPromise) return sessionPromise;
@@ -19,11 +23,33 @@
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         session = data;
+        if (data && data.csrfToken) csrfToken = data.csrfToken;
         return data;
       })
       .catch(() => null);
 
     return sessionPromise;
+  }
+
+  /**
+   * Get a CSRF token, asking the server for one if we do not have it yet.
+   *
+   * This is the first request that can set a cookie, so it is deliberately
+   * deferred until the visitor actually does something (adds to the cart, signs
+   * in, submits a form) rather than fired on every page load.
+   */
+  async function ensureCsrf(force) {
+    if (!force && csrfToken) return csrfToken;
+
+    try {
+      const response = await fetch('/api/csrf', { credentials: 'same-origin' });
+      if (!response.ok) return null;
+      const data = await response.json();
+      csrfToken = data.csrfToken;
+      return csrfToken;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -38,8 +64,8 @@
     if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
 
     if (method !== 'GET' && method !== 'HEAD') {
-      const current = session || (await loadSession());
-      if (current && current.csrfToken) headers['X-CSRF-Token'] = current.csrfToken;
+      const token = await ensureCsrf(Boolean(opts._retried));
+      if (token) headers['X-CSRF-Token'] = token;
     }
 
     const response = await fetch(path, {
@@ -50,6 +76,7 @@
     });
 
     if (response.status === 403 && method !== 'GET' && !opts._retried) {
+      csrfToken = null;
       await loadSession(true);
       return api(path, Object.assign({}, opts, { _retried: true }));
     }

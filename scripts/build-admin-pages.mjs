@@ -43,9 +43,8 @@ function shell({ file, key, title, heading, lead, actions = '', body }) {
     <meta name="robots" content="noindex, nofollow">
     <title>${title} · Lebanon Hockey Admin</title>
     <link rel="icon" href="/assets/LIHF-01_edited.png" type="image/png">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/assets/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/assets/styles.css">
     <link rel="stylesheet" href="/assets/store.css">
     <link rel="stylesheet" href="/assets/admin.css">

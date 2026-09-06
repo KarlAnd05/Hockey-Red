@@ -92,6 +92,64 @@
   });
 
   /* ========================================================================
+     Forgot password - request a link
+     ======================================================================== */
+  const forgotForm = document.querySelector('[data-forgot-form]');
+
+  bindForm(forgotForm, async (values, ctx) => {
+    const result = await api('/api/auth/forgot', {
+      method: 'POST',
+      body: { email: values.email },
+    });
+
+    // The server answers identically whether or not the account exists, so the
+    // page must not reveal anything either.
+    ctx.form.reset();
+    ctx.status.className = 'form-status is-success';
+    ctx.status.textContent =
+      result.message || 'If that email has an account, a reset link is on its way.';
+  });
+
+  /* ========================================================================
+     Reset password - consume the link
+     ======================================================================== */
+  const resetForm = document.querySelector('[data-reset-form]');
+
+  if (resetForm) {
+    const token = qs('token');
+
+    if (!token) {
+      const status = resetForm.querySelector('.form-status');
+      resetForm.querySelectorAll('input, button').forEach((el) => {
+        el.disabled = true;
+      });
+      if (status) {
+        status.className = 'form-status is-error';
+        status.innerHTML =
+          'This link is missing its token. <a href="forgot-password.html">Request a new one</a>.';
+      }
+    }
+
+    bindForm(resetForm, async (values, ctx) => {
+      if (values.password !== values.confirmPassword) {
+        throw new Error('The two passwords do not match.');
+      }
+
+      await api('/api/auth/reset', {
+        method: 'POST',
+        body: { token, password: values.password },
+      });
+
+      ctx.form.reset();
+      ctx.status.className = 'form-status is-success';
+      ctx.status.textContent = 'Password updated. Redirecting you to sign in...';
+      setTimeout(() => {
+        window.location.href = 'login.html';
+      }, 1600);
+    });
+  }
+
+  /* ========================================================================
      Account area
      ======================================================================== */
   const accountRoot = document.querySelector('[data-page="account"]');

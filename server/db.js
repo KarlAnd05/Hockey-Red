@@ -164,6 +164,28 @@ CREATE TABLE IF NOT EXISTS contact_messages (
   message    TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS password_resets (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  used_at    TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_resets_user ON password_resets(user_id);
+
+CREATE TABLE IF NOT EXISTS email_log (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  to_address TEXT NOT NULL,
+  subject    TEXT NOT NULL,
+  kind       TEXT NOT NULL DEFAULT '',
+  order_id   INTEGER,
+  status     TEXT NOT NULL CHECK (status IN ('sent', 'logged', 'failed')),
+  error      TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_email_log_order ON email_log(order_id);
 `);
 
 /* ==========================================================================

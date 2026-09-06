@@ -35,8 +35,9 @@ export function createApp() {
         "frame-ancestors 'none'",
         "object-src 'none'",
         "img-src 'self' data:",
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-        "font-src 'self' https://fonts.gstatic.com",
+        // Fonts are self-hosted, so no third-party origin is allowed at all.
+        "style-src 'self' 'unsafe-inline'",
+        "font-src 'self'",
         "script-src 'self'",
         "connect-src 'self'",
         "form-action 'self' https://checkout.stripe.com",

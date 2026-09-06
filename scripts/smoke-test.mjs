@@ -7,7 +7,40 @@
  * Covers catalogue, cart, discounts, checkout, invoices, accounts, admin
  * gating, and server-side price integrity.
  */
+import { DatabaseSync } from 'node:sqlite';
+import { createHash } from 'node:crypto';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 const BASE = process.env.SMOKE_BASE || `http://127.0.0.1:${process.env.PORT || 5174}`;
+
+/**
+ * Read-only view of the same database the server is using.
+ *
+ * Reset tokens are only ever sent by email and email bodies are not exposed
+ * over HTTP, so the test reads the token here rather than the server growing a
+ * dev-only endpoint that would exist in production builds. WAL mode allows a
+ * concurrent reader.
+ */
+const dbPath =
+  process.env.DB_PATH ||
+  join(dirname(fileURLToPath(import.meta.url)), '..', 'data', 'store.db');
+
+let db = null;
+try {
+  db = new DatabaseSync(dbPath, { readOnly: true });
+} catch (error) {
+  console.log(`  (could not open ${dbPath} for inspection: ${error.message})`);
+}
+
+const emailsFor = (kind, orderId) =>
+  db
+    ? db
+        .prepare(
+          `SELECT * FROM email_log WHERE kind = ?${orderId ? ' AND order_id = ?' : ''} ORDER BY id`
+        )
+        .all(...(orderId ? [kind, orderId] : [kind]))
+    : [];
 
 let passed = 0;
 let failed = 0;
@@ -70,13 +103,25 @@ function createClient() {
 
   return {
     request,
+    /**
+     * /api/session is read-only and issues no cookie, so a token is fetched
+     * from /api/csrf the way the browser client does before its first write.
+     */
     async bootstrap() {
       const { body } = await request('/api/session');
-      csrfToken = body.csrfToken;
+      const { body: csrf } = await request('/api/csrf');
+      csrfToken = csrf.csrfToken;
       return body;
+    },
+    /** Session without touching /api/csrf - used to prove no cookie is set. */
+    async peek() {
+      return (await request('/api/session')).body;
     },
     refreshCsrf(token) {
       csrfToken = token;
+    },
+    cookieNames() {
+      return [...jar.keys()];
     },
   };
 }
@@ -88,10 +133,35 @@ console.log(`\nLebanon Hockey smoke test -> ${BASE}`);
 
 const guest = createClient();
 
+section('Cookies');
+{
+  // A separate client so the jar is genuinely untouched.
+  const reader = createClient();
+
+  await reader.request('/');
+  await reader.request('/shop.html');
+  await reader.request('/about.html');
+  const passive = await reader.peek();
+
+  check(
+    'reading pages sets no cookie',
+    reader.cookieNames().length === 0,
+    `got [${reader.cookieNames().join(', ')}]`
+  );
+  check('/api/session issues no CSRF token to a cookieless visitor', passive.csrfToken === null);
+  check('/api/session still reports an empty cart', passive.cartCount === 0);
+
+  await reader.request('/api/csrf');
+  check(
+    'requesting a CSRF token issues lh_sid',
+    reader.cookieNames().includes('lh_sid'),
+    `got [${reader.cookieNames().join(', ')}]`
+  );
+}
+
 section('Session and pages');
 {
   const session = await guest.bootstrap();
-  check('GET /api/session returns a CSRF token', Boolean(session.csrfToken));
   check('guest starts signed out', session.user === null);
 
   const home = await guest.request('/');
@@ -194,6 +264,16 @@ const customer = createClient();
     method: 'POST',
     body: { email: customerEmail, password: 'SmokeTest!2026', firstName: 'Smoke', lastName: 'Test' },
   });
+
+  // The register limiter is per-IP and in memory. Repeated suite runs exhaust
+  // it, and every later check would fail for that one reason - so say so
+  // plainly and stop rather than printing a wall of misleading failures.
+  if (registered.status === 429) {
+    console.log('\n  The register rate limiter is exhausted from earlier runs.');
+    console.log('  Restart the dev server to reset it, then run the suite again.\n');
+    process.exit(2);
+  }
+
   check('registration works', registered.status === 201, JSON.stringify(registered.body).slice(0, 120));
   check('new accounts are customers, not admins', registered.body.user?.role === 'customer');
   customer.refreshCsrf(registered.body.csrfToken);
@@ -373,6 +453,184 @@ section('Price integrity');
     body: { slug: 'cap', quantity: -5 },
   });
   check('negative quantities cannot credit the cart', negative.body.subtotalCents >= 1500);
+}
+
+section('Order emails');
+{
+  const customerMails = emailsFor('order-customer', orderId);
+  const adminMails = emailsFor('order-admin', orderId);
+
+  check(
+    'exactly one confirmation email to the customer',
+    customerMails.length === 1,
+    `got ${customerMails.length}`
+  );
+  check(
+    'exactly one notification email to the shop',
+    adminMails.length === 1,
+    `got ${adminMails.length}`
+  );
+  check(
+    'customer email goes to the buyer',
+    customerMails[0]?.to_address === customerEmail,
+    customerMails[0]?.to_address
+  );
+  check(
+    'admin email does NOT go to the buyer',
+    adminMails[0]?.to_address && adminMails[0].to_address !== customerEmail,
+    adminMails[0]?.to_address
+  );
+  check(
+    'both emails were handled without error',
+    [...customerMails, ...adminMails].every((m) => m.status !== 'failed'),
+    [...customerMails, ...adminMails].map((m) => m.status).join(', ')
+  );
+
+  // Re-settling the same order must not produce a second pair.
+  await customer.request(`/api/checkout/dev-complete/${orderId}`, { method: 'POST' });
+  check(
+    'replaying the payment does not resend',
+    emailsFor('order-customer', orderId).length === 1 &&
+      emailsFor('order-admin', orderId).length === 1,
+    `${emailsFor('order-customer', orderId).length} + ${emailsFor('order-admin', orderId).length}`
+  );
+}
+
+section('Password reset');
+{
+  const resetEmail = `smoke-reset-${uniq}@example.com`;
+  const owner = createClient();
+  await owner.bootstrap();
+
+  const registered = await owner.request('/api/auth/register', {
+    method: 'POST',
+    body: { email: resetEmail, password: 'OriginalPass!2026' },
+  });
+  // Registering rotates the session, so the CSRF token rotates with it.
+  owner.refreshCsrf(registered.body.csrfToken);
+
+  const before = emailsFor('password-reset').length;
+
+  const unknown = await owner.request('/api/auth/forgot', {
+    method: 'POST',
+    body: { email: `no-such-${uniq}@example.com` },
+  });
+  const known = await owner.request('/api/auth/forgot', {
+    method: 'POST',
+    body: { email: resetEmail },
+  });
+
+  check('forgot-password accepts an unknown address', unknown.status === 200);
+  check('forgot-password accepts a known address', known.status === 200);
+  check(
+    'both answers are identical, so accounts cannot be enumerated',
+    JSON.stringify(unknown.body) === JSON.stringify(known.body),
+    `${JSON.stringify(unknown.body)} vs ${JSON.stringify(known.body)}`
+  );
+
+  const after = emailsFor('password-reset');
+  check(
+    'only the real address is emailed',
+    after.length === before + 1,
+    `${after.length - before} emails sent for 2 requests`
+  );
+  check('reset email goes to the account holder', after.at(-1)?.to_address === resetEmail);
+
+  // The token only exists in the email, so read it the way the server stored it.
+  const stored = db
+    ? db
+        .prepare(
+          `SELECT pr.* FROM password_resets pr JOIN users u ON u.id = pr.user_id
+           WHERE u.email = ? ORDER BY pr.id DESC LIMIT 1`
+        )
+        .get(resetEmail)
+    : null;
+  check('a reset token was stored', Boolean(stored));
+  check('the stored token is hashed, not plaintext', (stored?.token_hash || '').length === 64);
+  check('the token expires within the hour', Boolean(stored?.expires_at));
+
+  const badToken = await owner.request('/api/auth/reset', {
+    method: 'POST',
+    body: { token: 'deadbeef'.repeat(8), password: 'BrandNewPass!2026' },
+  });
+  check('an invalid reset token is refused', badToken.status === 400, `got ${badToken.status}`);
+
+  const shortPass = await owner.request('/api/auth/reset', {
+    method: 'POST',
+    body: { token: 'deadbeef'.repeat(8), password: 'short' },
+  });
+  check('a weak password is refused on reset', shortPass.status === 400);
+
+  /* --- Happy path ---------------------------------------------------------
+     Only the hash is stored, so the plaintext token from the email cannot be
+     recovered. The test plants a row with a hash it knows instead, which
+     exercises the real endpoint end to end. */
+  const rw = new DatabaseSync(dbPath);
+  // Unique per run: token_hash is UNIQUE, and rows from earlier runs persist.
+  const knownToken = createHash('sha256').update(`smoke-${uniq}`).digest('hex');
+  const knownHash = createHash('sha256').update(knownToken).digest('hex');
+  const user = rw.prepare('SELECT id FROM users WHERE email = ?').get(resetEmail);
+
+  rw.prepare('DELETE FROM password_resets WHERE user_id = ?').run(user.id);
+  rw.prepare(
+    `INSERT INTO password_resets (user_id, token_hash, expires_at)
+     VALUES (?, ?, datetime('now', '+1 hour'))`
+  ).run(user.id, knownHash);
+
+  // A live session that the reset must invalidate.
+  const victim = createClient();
+  await victim.bootstrap();
+  await victim.request('/api/auth/login', {
+    method: 'POST',
+    body: { email: resetEmail, password: 'OriginalPass!2026' },
+  });
+  const beforeReset = await victim.request('/api/orders');
+  check('the account has a working session before the reset', beforeReset.status === 200);
+
+  const used = await owner.request('/api/auth/reset', {
+    method: 'POST',
+    body: { token: knownToken, password: 'BrandNewPass!2026' },
+  });
+  check('a valid reset token is accepted', used.status === 200, JSON.stringify(used.body));
+
+  // A fresh client, because the successful reset just deleted every session
+  // belonging to that account - including the one `owner` was holding.
+  const replay = createClient();
+  await replay.bootstrap();
+  const reuse = await replay.request('/api/auth/reset', {
+    method: 'POST',
+    body: { token: knownToken, password: 'AnotherPass!2026' },
+  });
+  check(
+    'the same token cannot be used twice',
+    reuse.status === 400,
+    `got ${reuse.status} ${JSON.stringify(reuse.body)}`
+  );
+
+  const afterReset = await victim.request('/api/orders');
+  check(
+    'existing sessions are signed out by the reset',
+    afterReset.status === 401,
+    `got ${afterReset.status}`
+  );
+
+  const oldPass = createClient();
+  await oldPass.bootstrap();
+  const oldLogin = await oldPass.request('/api/auth/login', {
+    method: 'POST',
+    body: { email: resetEmail, password: 'OriginalPass!2026' },
+  });
+  check('the old password no longer works', oldLogin.status === 401, `got ${oldLogin.status}`);
+
+  const newPass = createClient();
+  await newPass.bootstrap();
+  const newLogin = await newPass.request('/api/auth/login', {
+    method: 'POST',
+    body: { email: resetEmail, password: 'BrandNewPass!2026' },
+  });
+  check('the new password works', newLogin.status === 200, `got ${newLogin.status}`);
+
+  rw.close();
 }
 
 section('Admin');

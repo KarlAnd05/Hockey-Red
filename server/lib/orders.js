@@ -2,6 +2,7 @@ import { db } from '../db.js';
 import { config } from '../config.js';
 import { getCartDetail } from './cart.js';
 import { generateInvoicePdf } from './invoice.js';
+import { sendOrderEmails } from './notifications.js';
 
 function nextOrderNumber() {
   const year = new Date().getFullYear();
@@ -138,6 +139,12 @@ export async function markOrderPaid(orderId, { paymentIntentId = null, cartId = 
   } catch (error) {
     console.error(`[invoice] failed for order ${orderId}:`, error.message);
   }
+
+  // Two emails per order: one to the customer, one to the shop. This sits
+  // after the invoice so the PDF can be attached to both. sendOrderEmails
+  // never throws, and the early return above makes it fire exactly once even
+  // when Stripe redelivers the webhook.
+  await sendOrderEmails(orderId);
 
   return db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
 }

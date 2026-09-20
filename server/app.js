@@ -14,6 +14,9 @@ import { ordersRouter } from './routes/orders.js';
 import { adminRouter } from './routes/admin.js';
 import { webhookRouter } from './routes/webhook.js';
 
+// Dev-only allowance so impeccable live mode can load. Never set in production.
+const __impeccableLiveDev = config.isProduction ? '' : ' http://localhost:8400';
+
 export function createApp() {
   const app = express();
 
@@ -38,8 +41,8 @@ export function createApp() {
         // Fonts are self-hosted, so no third-party origin is allowed at all.
         "style-src 'self' 'unsafe-inline'",
         "font-src 'self'",
-        "script-src 'self'",
-        "connect-src 'self'",
+        `script-src 'self'${__impeccableLiveDev}`,
+        `connect-src 'self'${__impeccableLiveDev}`,
         "form-action 'self' https://checkout.stripe.com",
       ].join('; ')
     );

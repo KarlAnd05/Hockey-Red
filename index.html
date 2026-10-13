@@ -33,7 +33,7 @@
         <span>Lebanon Hockey</span>
       </a>
 
-      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+      <button class="menu-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-nav">
         <span></span>
         <span></span>
         <span></span>
@@ -53,7 +53,7 @@
       </nav>
       <div class="header-tools">
         <a class="icon-button" data-account-link href="login.html">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <svg class="cedar-icon" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,6 38,28 62,28"/><polygon points="50,20 30,46 70,46"/><polygon points="50,34 22,66 78,66"/><rect x="46" y="66" width="8" height="14"/><rect x="18" y="82" width="64" height="5" rx="2.5"/></svg>
           <span class="label">Sign In</span>
         </a>
         <a class="icon-button" data-admin-link href="/admin/" hidden>
@@ -77,12 +77,13 @@
         <div class="hero-content">
           <div class="hero-badge">
             <span class="dot" aria-hidden="true"></span>
-            <p class="eyebrow">Lebanese Ice Hockey Federation</p>
+            <p class="eyebrow">Reg. no. 00418</p>
           </div>
-          <h1>Montreal <span class="accent">Challengers</span> Series</h1>
+          <h1>Lebanese Ice Hockey <span class="accent">Federation</span></h1>
           <p>
-            Building a fast, proud hockey community through programs, camps,
-            events, and partnerships across Canada and Lebanon.
+            The body that gives Lebanon a seat at the international ice hockey
+            table &mdash; recognised by the state, by the world federation, and
+            by the Olympic movement.
           </p>
           <div class="hero-actions">
             <a class="button primary" href="events.html">View Events</a>
@@ -90,6 +91,34 @@
           </div>
         </div>
         <p class="scroll-cue">Scroll</p>
+      </section>
+
+      <section id="recognitions" class="section reveal">
+        <div class="section-heading">
+          <p class="eyebrow">Recognised By</p>
+          <h2>A seat at the international table</h2>
+          <p>Every claim here is a matter of public record.</p>
+        </div>
+
+        <div class="recognition-grid">
+          <div class="recognition" data-stagger>
+            <p class="year">2018</p>
+            <p class="body">Ministry of Sports Decree</p>
+            <p class="note">Renewed 2022</p>
+          </div>
+
+          <div class="recognition" data-stagger>
+            <p class="year">2019</p>
+            <p class="body">IIHF Associate Member</p>
+            <p class="note">Int. Ice Hockey Federation</p>
+          </div>
+
+          <div class="recognition" data-stagger>
+            <p class="year">2020</p>
+            <p class="body">Lebanese Olympic Committee</p>
+            <p class="note">Member federation</p>
+          </div>
+        </div>
       </section>
 
       <section id="events" class="section reveal">
@@ -113,7 +142,7 @@
             <img src="./assets/Hero-UltMontreal-shutterstock_1839500569.jpg" alt="Hockey action on ice">
             <div>
               <p class="tag">Series</p>
-              <h3>Montreal Hockey Programs</h3>
+              <h3>Montreal Challengers Series</h3>
               <p>Competitive sessions and federation events for players, families, and supporters.</p>
             </div>
           </article>
@@ -257,7 +286,7 @@
           </p>
         </div>
         <div>
-          <h4>Programs</h4>
+          <h3>Programs</h3>
           <ul class="footer-links">
             <li><a href="mens-program.html">Men's Program</a></li>
             <li><a href="womens-program.html">Women's Program</a></li>
@@ -266,7 +295,7 @@
           </ul>
         </div>
         <div>
-          <h4>Federation</h4>
+          <h3>Federation</h3>
           <ul class="footer-links">
             <li><a href="about.html">About</a></li>
             <li><a href="news.html">News</a></li>
@@ -275,7 +304,7 @@
           </ul>
         </div>
         <div>
-          <h4>Shop</h4>
+          <h3>Shop</h3>
           <ul class="footer-links">
             <li><a href="shop.html">All products</a></li>
             <li><a href="cart.html">Cart</a></li>
@@ -298,5 +327,7 @@
     <script src="./assets/api.js"></script>
 
     <script src="./assets/app.js"></script>
+
+    <script src="./assets/chat.js"></script>
   </body>
 </html>

@@ -71,8 +71,13 @@
     if (event.key === 'Escape' && backdrop && !backdrop.hidden) closeModal();
   });
 
+  /* Donation statuses mirror Stripe's vocabulary ('canceled', 'past_due');
+     order statuses use the project's own ('cancelled'). Normalising here keeps
+     one set of badge styles instead of shipping both spellings in the CSS. */
   function statusBadge(status) {
-    return `<span class="status-badge is-${escapeHtml(status)}">${escapeHtml(status)}</span>`;
+    const raw = String(status || '');
+    const cls = raw.replace(/_/g, '-').replace(/^canceled$/, 'cancelled');
+    return `<span class="status-badge is-${escapeHtml(cls)}">${escapeHtml(raw.replace(/_/g, ' '))}</span>`;
   }
 
   function centsFromInput(value) {
@@ -1016,6 +1021,905 @@
   }
 
   /* ========================================================================
+     Page text - every editable block on the public site
+     ======================================================================== */
+  async function initContent() {
+    const host = document.querySelector('[data-content-list]');
+    const pageSelect = document.querySelector('[data-content-page]');
+    const searchInput = document.querySelector('[data-content-search]');
+    const editedOnly = document.querySelector('[data-content-edited-only]');
+    const countEl = document.querySelector('[data-content-count]');
+    const resyncBtn = document.querySelector('[data-content-resync]');
+
+    let groups = [];
+
+    /* A block's live text is the edit when there is one, otherwise whatever the
+       page markup says. The editor always shows what a visitor would read. */
+    const liveValue = (b) => (b.value !== null && b.value !== '' ? b.value : b.default_value);
+    const isEdited = (b) => b.value !== null && b.value !== '';
+
+    function rows(blocks) {
+      return blocks
+        .map((b) => {
+          const value = liveValue(b);
+          const lines = Math.min(14, Math.max(2, Math.ceil(value.length / 78) + value.split('\n').length - 1));
+          const edited = isEdited(b);
+          return `
+            <article class="content-block${edited ? ' is-edited' : ''}${b.orphaned ? ' is-orphaned' : ''}" data-key="${escapeHtml(b.key)}">
+              <div class="content-block-head">
+                <span class="content-tag">${escapeHtml(b.tag)}</span>
+                <p class="content-label">${escapeHtml(b.label)}</p>
+                ${edited ? '<span class="content-state">Edited</span>' : ''}
+                ${b.orphaned ? '<span class="content-state is-warn">No longer on the page</span>' : ''}
+              </div>
+              <textarea class="content-input" rows="${lines}" data-input spellcheck="true">${escapeHtml(value)}</textarea>
+              <div class="content-block-actions">
+                <button type="button" class="button primary small" data-save>Save</button>
+                ${edited ? '<button type="button" class="button ghost small" data-reset>Reset</button>' : ''}
+                <span class="content-status" data-status role="status"></span>
+              </div>
+              ${
+                edited
+                  ? `<p class="content-default">The page itself says: &ldquo;${escapeHtml(
+                      b.default_value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180)
+                    )}&rdquo;</p>`
+                  : ''
+              }
+            </article>`;
+        })
+        .join('');
+    }
+
+    function render() {
+      const term = (searchInput?.value || '').trim().toLowerCase();
+      const onlyPage = pageSelect?.value || '';
+      const onlyEdited = Boolean(editedOnly?.checked);
+
+      let shown = 0;
+      const html = groups
+        .filter((g) => !onlyPage || g.page === onlyPage)
+        .map((g) => {
+          const blocks = g.blocks.filter((b) => {
+            if (onlyEdited && !isEdited(b)) return false;
+            if (!term) return true;
+            return (
+              b.label.toLowerCase().includes(term) ||
+              liveValue(b).toLowerCase().includes(term) ||
+              b.key.toLowerCase().includes(term)
+            );
+          });
+          if (!blocks.length) return '';
+          shown += blocks.length;
+          return `
+            <section class="content-page">
+              <header class="content-page-head">
+                <h2>${escapeHtml(g.page)}</h2>
+                <p>${g.blocks.length} block${g.blocks.length === 1 ? '' : 's'}${
+                  g.edited ? ` &middot; ${g.edited} edited` : ''
+                }</p>
+                <a class="button ghost small" href="/${escapeHtml(g.page)}" target="_blank" rel="noopener">View page</a>
+              </header>
+              ${rows(blocks)}
+            </section>`;
+        })
+        .join('');
+
+      host.innerHTML =
+        html ||
+        '<div class="empty-state"><h2>Nothing matches</h2><p>Try a different search term, or clear the filters.</p></div>';
+      if (countEl) countEl.textContent = `${shown} block${shown === 1 ? '' : 's'}`;
+    }
+
+    async function load() {
+      host.innerHTML = '<p class="content-loading">Reading the site&rsquo;s text&hellip;</p>';
+      const data = await api('/api/admin/content');
+      groups = data.pages || [];
+
+      if (pageSelect && pageSelect.options.length <= 1) {
+        for (const g of groups) {
+          const opt = document.createElement('option');
+          opt.value = g.page;
+          opt.textContent = g.page;
+          pageSelect.appendChild(opt);
+        }
+      }
+      render();
+    }
+
+    /* One listener for the whole list, so re-rendering never leaves stale handlers. */
+    host.addEventListener('click', (event) => {
+      const block = event.target.closest('.content-block');
+      if (!block) return;
+      const key = block.dataset.key;
+      const input = block.querySelector('[data-input]');
+      const status = block.querySelector('[data-status]');
+
+      if (event.target.closest('[data-save]')) {
+        guard(async () => {
+          status.textContent = 'Saving...';
+          await api(`/api/admin/content/${encodeURIComponent(key)}`, {
+            method: 'PATCH',
+            body: { value: input.value },
+          });
+          status.textContent = 'Saved';
+          toast('Text updated. It is live on the site now.');
+          await load();
+        });
+      }
+
+      if (event.target.closest('[data-reset]')) {
+        guard(async () => {
+          status.textContent = 'Resetting...';
+          await api(`/api/admin/content/${encodeURIComponent(key)}/reset`, { method: 'POST' });
+          toast('Back to the original wording.');
+          await load();
+        });
+      }
+    });
+
+    searchInput?.addEventListener('input', render);
+    pageSelect?.addEventListener('change', render);
+    editedOnly?.addEventListener('change', render);
+
+    resyncBtn?.addEventListener('click', () =>
+      guard(async () => {
+        const result = await api('/api/admin/content/resync', { method: 'POST' });
+        toast(`Re-read ${result.pages} pages, ${result.blocks} text blocks.`);
+        await load();
+      })
+    );
+
+    await load();
+  }
+
+  /* ========================================================================
+     Roster
+     ======================================================================== */
+  async function initRoster() {
+    const host = document.querySelector('[data-roster-admin]');
+    const programSelect = document.querySelector('[data-roster-program]');
+
+    const TEAMS = { national: 'National Team', next_gen: 'Next Generation' };
+    const POSITIONS = { forward: 'Forward', defence: 'Defence', goaltender: 'Goaltender' };
+
+    const program = () => programSelect?.value || 'womens';
+
+    async function load() {
+      host.innerHTML = '<div class="admin-loading">Loading roster...</div>';
+      const data = await api(`/api/admin/roster?program=${encodeURIComponent(program())}`);
+
+      if (!data.players.length) {
+        host.innerHTML =
+          '<div class="admin-empty"><h3>No players yet</h3><p>Add players and they appear on this program&rsquo;s page straight away.</p></div>';
+        host.dataset.cache = '[]';
+        return;
+      }
+
+      host.innerHTML = `
+        <div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr><th class="num">#</th><th>Name</th><th>Team</th><th>Position</th><th>Most recent team</th><th>Shown</th><th></th></tr>
+            </thead>
+            <tbody>
+              ${data.players
+                .map(
+                  (p) => `
+                <tr data-player="${p.id}">
+                  <td class="num">${p.number ?? '&mdash;'}</td>
+                  <td class="cell-strong">${escapeHtml(p.name)}</td>
+                  <td>${escapeHtml(TEAMS[p.team] || p.team)}</td>
+                  <td>${escapeHtml(POSITIONS[p.position] || p.position)}</td>
+                  <td class="cell-muted">${escapeHtml(p.recentTeam || '—')}</td>
+                  <td><button type="button" class="toggle-pill ${p.active ? 'on' : 'off'}" data-toggle-player>${
+                    p.active ? 'Shown' : 'Hidden'
+                  }</button></td>
+                  <td>
+                    <div class="actions">
+                      <button type="button" class="mini-button" data-edit>Edit</button>
+                      <button type="button" class="mini-button danger" data-delete>Delete</button>
+                    </div>
+                  </td>
+                </tr>`
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>`;
+
+      host.dataset.cache = JSON.stringify(data.players);
+    }
+
+    function playerForm(player) {
+      const isNew = !player;
+      const p = player || {
+        program: program(), team: 'national', position: 'forward', number: '',
+        name: '', recentTeam: '', resides: '', hometown: '', active: true, sortOrder: 0,
+      };
+
+      const options = (map, selected) =>
+        Object.entries(map)
+          .map(([k, v]) => `<option value="${k}"${k === selected ? ' selected' : ''}>${escapeHtml(v)}</option>`)
+          .join('');
+
+      const modal = openModal(
+        isNew ? 'Add player' : `Edit ${p.name}`,
+        `<form data-player-form>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Program
+              <select name="program">${options({ womens: "Women's", mens: "Men's" }, p.program)}</select>
+            </label>
+            <label>Team <select name="team">${options(TEAMS, p.team)}</select></label>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Position <select name="position">${options(POSITIONS, p.position)}</select></label>
+            <label>Jersey number <span class="cell-muted">(blank for none)</span>
+              <input name="number" type="number" min="0" max="99" value="${p.number ?? ''}">
+            </label>
+          </div>
+          <label>Name <input name="name" value="${escapeHtml(p.name)}" required maxlength="160"></label>
+          <label>Most recent team <input name="recentTeam" value="${escapeHtml(
+            p.recentTeam
+          )}" maxlength="200"></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Resides <input name="resides" value="${escapeHtml(p.resides)}" maxlength="120"></label>
+            <label>Hometown <input name="hometown" value="${escapeHtml(p.hometown)}" maxlength="120"></label>
+          </div>
+          <label>Order <input name="sortOrder" type="number" value="${p.sortOrder ?? 0}"></label>
+          <label class="checkbox-row"><input type="checkbox" name="active" ${
+            p.active ? 'checked' : ''
+          }> Show on the public site</label>
+        </form>`,
+        '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button solid" data-save>Save player</button>'
+      );
+
+      const form = modal.querySelector('[data-player-form]');
+
+      modal.querySelector('[data-save]').addEventListener('click', () =>
+        guard(async () => {
+          const v = Object.fromEntries(new FormData(form).entries());
+          if (!String(v.name || '').trim()) throw new Error("Enter the player's name.");
+
+          const body = {
+            program: v.program,
+            team: v.team,
+            position: v.position,
+            number: v.number === '' ? null : Number(v.number),
+            name: v.name,
+            recentTeam: v.recentTeam,
+            resides: v.resides,
+            hometown: v.hometown,
+            sortOrder: Number(v.sortOrder) || 0,
+            active: Boolean(v.active),
+          };
+
+          if (isNew) await api('/api/admin/roster', { method: 'POST', body });
+          else await api(`/api/admin/roster/${p.id}`, { method: 'PATCH', body });
+
+          toast(isNew ? 'Player added.' : 'Player updated.');
+          closeModal();
+          await load();
+        })
+      );
+    }
+
+    document.querySelector('[data-new-player]')?.addEventListener('click', () => playerForm(null));
+    programSelect?.addEventListener('change', () => guard(load));
+
+    host.addEventListener('click', (event) => {
+      const row = event.target.closest('[data-player]');
+      if (!row) return;
+      const all = JSON.parse(host.dataset.cache || '[]');
+      const p = all.find((x) => String(x.id) === row.dataset.player);
+      if (!p) return;
+
+      if (event.target.closest('[data-edit]')) playerForm(p);
+
+      /* Hiding is the gentle option, and the one privacy.html promises a parent
+         or guardian: the player leaves the public site, the record stays. */
+      if (event.target.closest('[data-toggle-player]')) {
+        guard(async () => {
+          await api(`/api/admin/roster/${p.id}`, { method: 'PATCH', body: { active: !p.active } });
+          await load();
+        });
+      }
+
+      if (event.target.closest('[data-delete]')) {
+        const modal = openModal(
+          'Remove this player?',
+          `<div class="modal-body"><p>${escapeHtml(
+            p.name
+          )} will be deleted outright. If you only want them off the public site, use <strong>Shown</strong> instead &mdash; that keeps the record.</p></div>`,
+          '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button danger" data-confirm-delete>Delete</button>'
+        );
+        modal.querySelector('[data-confirm-delete]').addEventListener('click', () =>
+          guard(async () => {
+            await api(`/api/admin/roster/${p.id}`, { method: 'DELETE' });
+            closeModal();
+            toast('Player removed.');
+            await load();
+          })
+        );
+      }
+    });
+
+    await load();
+  }
+
+  /* ========================================================================
+     Membership registrations
+     ======================================================================== */
+  async function initRegistrations() {
+    const statsHost = document.querySelector('[data-registration-stats]');
+    const host = document.querySelector('[data-registrations]');
+
+    async function load() {
+      host.innerHTML = '<div class="admin-loading">Loading registrations...</div>';
+      const data = await api('/api/admin/registrations');
+      const t = data.totals;
+
+      if (statsHost) {
+        statsHost.innerHTML = [
+          ['Registrations', String(t.count), 'All applications received'],
+          ['Paid', String(t.paid), 'Fee received'],
+          ['Awaiting payment', String(t.unpaid), 'Usually e-transfer'],
+          ['Collected', money(t.collectedCents, data.currency), 'From paid memberships'],
+        ]
+          .map(
+            ([label, value, sub]) => `
+        <div class="stat-card">
+          <span class="label">${escapeHtml(label)}</span>
+          <div class="value">${escapeHtml(value)}</div>
+          <p class="sub">${escapeHtml(sub)}</p>
+        </div>`
+          )
+          .join('');
+      }
+
+      if (!data.registrations.length) {
+        host.innerHTML =
+          '<div class="admin-empty"><h3>No registrations yet</h3><p>Applications from the membership form will appear here.</p></div>';
+        host.dataset.cache = '[]';
+        return;
+      }
+
+      host.innerHTML = `
+        <div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr><th>Name</th><th>Type</th><th class="num">Fee</th><th>Payment</th><th>Received</th><th></th></tr>
+            </thead>
+            <tbody>
+              ${data.registrations
+                .map(
+                  (r) => `
+                <tr data-registration="${r.id}">
+                  <td>
+                    <div class="cell-strong">${escapeHtml(
+                      [r.firstName, r.lastName].filter(Boolean).join(' ')
+                    )}</div>
+                    <div class="cell-muted">${escapeHtml(r.email)}</div>
+                  </td>
+                  <td>${escapeHtml(r.tierLabel)}</td>
+                  <td class="num">${escapeHtml(money(r.amountCents, r.currency))}</td>
+                  <td>${statusBadge(r.paymentStatus)}</td>
+                  <td class="cell-muted">${escapeHtml(formatDate(r.createdAt))}</td>
+                  <td>
+                    <div class="actions">
+                      <button type="button" class="mini-button" data-view>Open</button>
+                      ${
+                        r.paymentStatus !== 'paid'
+                          ? '<button type="button" class="mini-button solid" data-mark-paid>Mark paid</button>'
+                          : ''
+                      }
+                    </div>
+                  </td>
+                </tr>`
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>`;
+
+      host.dataset.cache = JSON.stringify(data.registrations);
+    }
+
+    /* The eligibility fields are only rendered when a record is deliberately
+       opened, rather than sitting in the table where they would be on screen
+       for anyone walking past. */
+    function detail(r) {
+      const row = (label, value) =>
+        value ? `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(String(value))}</td></tr>` : '';
+
+      openModal(
+        `${r.firstName} ${r.lastName}`.trim() || 'Registration',
+        `<div class="modal-body">
+          <table class="data reg-detail">
+            <tbody>
+              ${row('Membership', r.tierLabel)}
+              ${row('Fee', money(r.amountCents, r.currency))}
+              ${row('Payment', r.paymentStatus)}
+              ${row('Email', r.email)}
+              ${row('Phone', r.phone)}
+              ${row('Full name', [r.firstName, r.middleName, r.lastName].filter(Boolean).join(' '))}
+              ${row('City of residence', r.cityOfResidence)}
+              ${row('Date of birth', r.dateOfBirth)}
+              ${row('Position', r.position)}
+              ${row('Shoots', r.shoots)}
+              ${row('Height', r.heightCm ? `${r.heightCm} cm` : '')}
+              ${row('Weight', r.weightKg ? `${r.weightKg} kg` : '')}
+              ${row('Place of birth', r.placeOfBirth)}
+              ${row('Country of birth', r.countryOfBirth)}
+              ${row('Citizenship', r.citizenship)}
+              ${row('Second citizenship', r.citizenshipSecond)}
+              ${row("Father's citizenship", r.citizenshipFather)}
+              ${row("Mother's citizenship", r.citizenshipMother)}
+              ${row('Highest level played', r.highestLevelPlayed)}
+              ${row('Message', r.message)}
+              ${row('Received', formatDate(r.createdAt))}
+            </tbody>
+          </table>
+        </div>`,
+        '<button type="button" class="mini-button" data-modal-close>Close</button>'
+      );
+    }
+
+    host.addEventListener('click', (event) => {
+      const row = event.target.closest('[data-registration]');
+      if (!row) return;
+      const all = JSON.parse(host.dataset.cache || '[]');
+      const r = all.find((x) => String(x.id) === row.dataset.registration);
+      if (!r) return;
+
+      if (event.target.closest('[data-view]')) detail(r);
+
+      if (event.target.closest('[data-mark-paid]')) {
+        guard(async () => {
+          await api(`/api/admin/registrations/${r.id}/paid`, { method: 'PATCH' });
+          toast('Marked as paid.');
+          await load();
+        });
+      }
+    });
+
+    await load();
+  }
+
+  /* ========================================================================
+     Chat
+     ======================================================================== */
+  async function initChat() {
+    const listHost = document.querySelector('[data-chat-threads]');
+    const threadHost = document.querySelector('[data-chat-thread]');
+
+    let openId = null;
+    let timer = null;
+
+    const STATUS_LABEL = { open: 'Open', closed: 'Closed', blocked: 'Blocked' };
+
+    async function loadThreads() {
+      const data = await api('/api/admin/chat');
+
+      if (!data.threads.length) {
+        listHost.innerHTML = '<p class="chat-admin-empty">No conversations yet.</p>';
+        return;
+      }
+
+      listHost.innerHTML = data.threads
+        .map(
+          (t) => `
+        <button type="button" class="chat-thread-item${t.id === openId ? ' is-active' : ''}" data-thread="${t.id}">
+          <span class="chat-thread-top">
+            <strong>${escapeHtml(t.name || t.email || 'Anonymous visitor')}</strong>
+            ${t.unread ? `<span class="chat-unread">${t.unread}</span>` : ''}
+          </span>
+          <span class="chat-thread-preview">${escapeHtml((t.preview || '').slice(0, 70))}</span>
+          <span class="chat-thread-meta">${escapeHtml(formatDate(t.lastMessageAt || t.createdAt))}${
+            t.status !== 'open' ? ` · ${escapeHtml(STATUS_LABEL[t.status])}` : ''
+          }</span>
+        </button>`
+        )
+        .join('');
+    }
+
+    async function loadThread(id, { quiet = false } = {}) {
+      if (!quiet) threadHost.innerHTML = '<div class="admin-loading">Loading conversation...</div>';
+      const data = await api(`/api/admin/chat/${id}`);
+      openId = id;
+
+      threadHost.innerHTML = `
+        <header class="chat-thread-head">
+          <div>
+            <h2>${escapeHtml(data.thread.name || 'Anonymous visitor')}</h2>
+            <p>${
+              data.thread.email
+                ? `<a href="mailto:${escapeHtml(data.thread.email)}">${escapeHtml(data.thread.email)}</a>`
+                : 'No email given &mdash; the only way to answer is here.'
+            }</p>
+          </div>
+          <div class="actions">
+            ${
+              data.thread.status === 'open'
+                ? '<button type="button" class="mini-button" data-status="closed">Close</button><button type="button" class="mini-button danger" data-status="blocked">Block</button>'
+                : '<button type="button" class="mini-button solid" data-status="open">Reopen</button>'
+            }
+          </div>
+        </header>
+
+        <div class="chat-admin-log" data-admin-log>
+          ${data.messages
+            .map(
+              (m) => `
+            <div class="chat-bubble is-${m.sender === 'admin' ? 'you' : 'them'}">
+              <p>${escapeHtml(m.body)}</p>
+              <span class="chat-stamp">${escapeHtml(formatDate(m.createdAt))}</span>
+            </div>`
+            )
+            .join('')}
+        </div>
+
+        <form class="chat-admin-form" data-reply-form>
+          <textarea name="body" rows="2" placeholder="Write a reply..." required></textarea>
+          <button type="submit" class="button primary small">Send</button>
+        </form>`;
+
+      const log = threadHost.querySelector('[data-admin-log]');
+      log.scrollTop = log.scrollHeight;
+
+      threadHost.querySelector('[data-reply-form]').addEventListener('submit', (event) => {
+        event.preventDefault();
+        const field = event.target.querySelector('textarea');
+        const body = field.value.trim();
+        if (!body) return;
+
+        guard(async () => {
+          field.value = '';
+          await api(`/api/admin/chat/${id}`, { method: 'POST', body: { body } });
+          await loadThread(id, { quiet: true });
+          await loadThreads();
+        });
+      });
+
+      threadHost.querySelectorAll('[data-status]').forEach((button) =>
+        button.addEventListener('click', () =>
+          guard(async () => {
+            await api(`/api/admin/chat/${id}`, {
+              method: 'PATCH',
+              body: { status: button.dataset.status },
+            });
+            toast('Conversation updated.');
+            await loadThread(id, { quiet: true });
+            await loadThreads();
+          })
+        )
+      );
+
+      await loadThreads();
+    }
+
+    listHost.addEventListener('click', (event) => {
+      const item = event.target.closest('[data-thread]');
+      if (item) guard(() => loadThread(Number(item.dataset.thread)));
+    });
+
+    /* Keep the open conversation current without a refresh. Paused when the tab
+       is hidden so an admin who leaves this open all day is not polling into the
+       void. */
+    function startPolling() {
+      if (timer) clearInterval(timer);
+      timer = setInterval(() => {
+        if (document.hidden) return;
+        if (openId) loadThread(openId, { quiet: true }).catch(() => {});
+        else loadThreads().catch(() => {});
+      }, 8000);
+    }
+
+    threadHost.innerHTML = '<p class="chat-admin-empty">Pick a conversation on the left.</p>';
+    await loadThreads();
+    startPolling();
+  }
+
+  /* ========================================================================
+     News posts
+     ======================================================================== */
+  async function initNews() {
+    const host = document.querySelector('[data-news-admin]');
+
+    async function load() {
+      host.innerHTML = '<div class="admin-loading">Loading posts...</div>';
+      const data = await api('/api/admin/news');
+
+      if (!data.posts.length) {
+        host.innerHTML =
+          '<div class="admin-empty"><h3>No posts yet</h3><p>Write one and it appears on the news page with its own shareable link.</p></div>';
+        host.dataset.cache = '[]';
+        return;
+      }
+
+      host.innerHTML = `
+        <div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr><th>Post</th><th>Category</th><th>Published</th><th>Live</th><th></th></tr>
+            </thead>
+            <tbody>
+              ${data.posts
+                .map(
+                  (p) => `
+                <tr data-post="${p.id}">
+                  <td>
+                    <div class="cell-strong">${escapeHtml(p.title)}</div>
+                    <div class="cell-muted">/news/${escapeHtml(p.slug)}</div>
+                  </td>
+                  <td>${escapeHtml(p.category || '-')}</td>
+                  <td class="cell-muted">${escapeHtml(String(p.publishedAt || '').slice(0, 10))}</td>
+                  <td><button type="button" class="toggle-pill ${p.active ? 'on' : 'off'}" data-toggle-post>${
+                    p.active ? 'Live' : 'Hidden'
+                  }</button></td>
+                  <td>
+                    <div class="actions">
+                      <a class="mini-button" href="/news/${escapeHtml(p.slug)}" target="_blank" rel="noopener">View</a>
+                      <button type="button" class="mini-button" data-edit>Edit</button>
+                      <button type="button" class="mini-button danger" data-delete>Delete</button>
+                    </div>
+                  </td>
+                </tr>`
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>`;
+
+      host.dataset.cache = JSON.stringify(data.posts);
+    }
+
+    function postForm(post) {
+      const isNew = !post;
+      const p = post || {
+        title: '', category: '', excerpt: '', body: '', imageUrl: '', imageAlt: '',
+        author: '', contactEmail: '', contactPhone: '',
+        share: { facebook: '', instagram: '', x: '' },
+        publishedAt: new Date().toISOString().slice(0, 10), active: true, slug: '',
+      };
+
+      const modal = openModal(
+        isNew ? 'New post' : `Edit ${p.title}`,
+        `<form data-post-form>
+          <label>Title <input name="title" value="${escapeHtml(p.title)}" required maxlength="200"></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Category <input name="category" value="${escapeHtml(p.category)}" placeholder="Coaching" maxlength="60"></label>
+            <label>Published <input name="publishedAt" type="date" value="${escapeHtml(
+              String(p.publishedAt || '').slice(0, 10)
+            )}"></label>
+          </div>
+          <label>Summary <textarea name="excerpt" rows="2" maxlength="400">${escapeHtml(p.excerpt)}</textarea></label>
+          <label>Body <textarea name="body" rows="8" maxlength="20000">${escapeHtml(p.body)}</textarea></label>
+          <p class="cell-muted">Leave a blank line between paragraphs. Plain text only &mdash; no HTML needed.</p>
+
+          <label>Photo
+            <input type="file" accept="image/jpeg,image/png,image/webp" data-post-image>
+          </label>
+          <div data-image-preview>${
+            p.imageUrl
+              ? `<img src="/${escapeHtml(p.imageUrl.replace(/^\.\//, ''))}" alt="" style="max-width:220px;border-radius:8px;margin:6px 0">`
+              : ''
+          }</div>
+          <input type="hidden" name="imageUrl" value="${escapeHtml(p.imageUrl)}">
+          <label>Photo description <input name="imageAlt" value="${escapeHtml(
+            p.imageAlt
+          )}" maxlength="300" placeholder="Describes the photo for screen readers"></label>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Contact email <input name="contactEmail" type="email" value="${escapeHtml(
+              p.contactEmail
+            )}" maxlength="200"></label>
+            <label>Contact phone <input name="contactPhone" value="${escapeHtml(
+              p.contactPhone
+            )}" maxlength="60"></label>
+          </div>
+          <label>Author <input name="author" value="${escapeHtml(p.author)}" maxlength="120"></label>
+
+          <p class="cell-muted">Optional links shown in the share menu. Leave blank and they are not offered.</p>
+          <label>Facebook link <input name="shareFacebook" value="${escapeHtml(
+            p.share?.facebook || ''
+          )}" maxlength="400"></label>
+          <label>Instagram link <input name="shareInstagram" value="${escapeHtml(
+            p.share?.instagram || ''
+          )}" maxlength="400"></label>
+          <label>X link <input name="shareX" value="${escapeHtml(p.share?.x || '')}" maxlength="400"></label>
+
+          <label class="checkbox-row"><input type="checkbox" name="active" ${
+            p.active ? 'checked' : ''
+          }> Visible on the site</label>
+        </form>`,
+        '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button solid" data-save>Save post</button>'
+      );
+
+      const form = modal.querySelector('[data-post-form]');
+      const fileInput = modal.querySelector('[data-post-image]');
+      const preview = modal.querySelector('[data-image-preview]');
+
+      fileInput?.addEventListener('change', () =>
+        guard(async () => {
+          const file = fileInput.files && fileInput.files[0];
+          if (!file) return;
+
+          preview.innerHTML = '<p class="cell-muted">Uploading...</p>';
+          /* Raw bytes, not base64: express.json() ignores octet-stream, so this
+             bypasses the global 256kb limit and is capped by its own route. */
+          const result = await api('/api/admin/uploads', {
+            method: 'POST',
+            rawBody: file,
+            contentType: 'application/octet-stream',
+          });
+
+          form.imageUrl.value = result.url;
+          preview.innerHTML = `<img src="/${escapeHtml(
+            result.url.replace(/^\.\//, '')
+          )}" alt="" style="max-width:220px;border-radius:8px;margin:6px 0">`;
+          toast('Photo uploaded.');
+        })
+      );
+
+      modal.querySelector('[data-save]').addEventListener('click', () =>
+        guard(async () => {
+          const values = Object.fromEntries(new FormData(form).entries());
+          if (!String(values.title || '').trim()) throw new Error('Give the post a title.');
+
+          const body = {
+            title: values.title,
+            category: values.category,
+            excerpt: values.excerpt,
+            body: values.body,
+            imageUrl: values.imageUrl,
+            imageAlt: values.imageAlt,
+            author: values.author,
+            contactEmail: values.contactEmail,
+            contactPhone: values.contactPhone,
+            shareFacebook: values.shareFacebook,
+            shareInstagram: values.shareInstagram,
+            shareX: values.shareX,
+            publishedAt: values.publishedAt,
+            active: Boolean(values.active),
+          };
+
+          if (isNew) await api('/api/admin/news', { method: 'POST', body });
+          else await api(`/api/admin/news/${p.id}`, { method: 'PATCH', body });
+
+          toast(isNew ? 'Post published.' : 'Post updated.');
+          closeModal();
+          await load();
+        })
+      );
+    }
+
+    document.querySelector('[data-new-post]')?.addEventListener('click', () => postForm(null));
+
+    host.addEventListener('click', (event) => {
+      const row = event.target.closest('[data-post]');
+      if (!row) return;
+      const posts = JSON.parse(host.dataset.cache || '[]');
+      const post = posts.find((p) => String(p.id) === row.dataset.post);
+      if (!post) return;
+
+      if (event.target.closest('[data-edit]')) postForm(post);
+
+      if (event.target.closest('[data-toggle-post]')) {
+        guard(async () => {
+          await api(`/api/admin/news/${post.id}`, { method: 'PATCH', body: { active: !post.active } });
+          await load();
+        });
+      }
+
+      if (event.target.closest('[data-delete]')) {
+        const modal = openModal(
+          'Delete this post?',
+          `<div class="modal-body"><p>&ldquo;${escapeHtml(
+            post.title
+          )}&rdquo; and its photo will be removed. Any link already shared will stop working.</p></div>`,
+          '<button type="button" class="mini-button" data-modal-close>Keep it</button><button type="button" class="mini-button danger" data-confirm-delete>Delete</button>'
+        );
+        modal.querySelector('[data-confirm-delete]').addEventListener('click', () =>
+          guard(async () => {
+            await api(`/api/admin/news/${post.id}`, { method: 'DELETE' });
+            closeModal();
+            toast('Post deleted.');
+            await load();
+          })
+        );
+      }
+    });
+
+    await load();
+  }
+
+  /* ========================================================================
+     Donations
+     ======================================================================== */
+  async function initDonations() {
+    const statsHost = document.querySelector('[data-donation-stats]');
+    const host = document.querySelector('[data-donations]');
+
+    const KIND = { one_time: 'One time', monthly: 'Monthly' };
+
+    async function load() {
+      host.innerHTML = '<div class="admin-loading">Loading donations...</div>';
+      const data = await api('/api/admin/donations');
+      const t = data.totals;
+
+      if (statsHost) {
+        statsHost.innerHTML = [
+          ['Received', money(t.receivedCents, data.currency), 'All gifts actually collected'],
+          ['One-time', money(t.oneTimeCents, data.currency), 'Single gifts'],
+          ['Recurring', money(t.recurringCents, data.currency), 'Collected from monthly donors'],
+          ['Monthly donors', String(t.activeMonthly), `${money(t.monthlyValueCents, data.currency)} per month`],
+        ]
+          .map(
+            ([label, value, sub]) => `
+        <div class="stat-card">
+          <span class="label">${escapeHtml(label)}</span>
+          <div class="value">${escapeHtml(value)}</div>
+          <p class="sub">${escapeHtml(sub)}</p>
+        </div>`
+          )
+          .join('');
+      }
+
+      if (!data.donations.length) {
+        host.innerHTML =
+          '<div class="admin-empty"><h3>No donations yet</h3><p>Gifts made through the donation page will appear here.</p></div>';
+        return;
+      }
+
+      host.innerHTML = `
+        <div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Donor</th>
+                <th>Kind</th>
+                <th class="num">Amount</th>
+                <th>Status</th>
+                <th class="num">Charges</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.donations
+                .map(
+                  (d) => `
+                <tr>
+                  <td>
+                    <div class="cell-strong">${escapeHtml(d.name || 'Anonymous')}</div>
+                    <div class="cell-muted">${escapeHtml(d.email || '')}</div>
+                    ${d.message ? `<div class="cell-muted">&ldquo;${escapeHtml(d.message)}&rdquo;</div>` : ''}
+                  </td>
+                  <td>${escapeHtml(KIND[d.kind] || d.kind)}</td>
+                  <td class="num">
+                    <div class="cell-strong">${escapeHtml(money(d.totalCents, d.currency))}${
+                      d.isRecurring ? ' /mo' : ''
+                    }</div>
+                    ${
+                      d.feeCents > 0
+                        ? `<div class="cell-muted">incl. ${escapeHtml(money(d.feeCents, d.currency))} fee</div>`
+                        : ''
+                    }
+                  </td>
+                  <td>${statusBadge(d.status)}</td>
+                  <td class="num">${d.isRecurring ? (d.payments ? d.payments.length : 0) : '-'}</td>
+                  <td class="cell-muted">${escapeHtml(formatDate(d.paidAt || d.createdAt))}</td>
+                </tr>`
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    await load();
+  }
+
+  /* ========================================================================
      Dispatch
      ======================================================================== */
   const pages = {
@@ -1025,6 +1929,12 @@
     customers: initCustomers,
     invoices: initInvoices,
     discounts: initDiscounts,
+    donations: initDonations,
+    news: initNews,
+    chat: initChat,
+    registrations: initRegistrations,
+    roster: initRoster,
+    content: initContent,
   };
 
   if (pages[page]) guard(pages[page]);

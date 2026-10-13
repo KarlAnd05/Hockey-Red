@@ -419,8 +419,12 @@ a {
 
 /* ==========================================================================
    Reveal-on-scroll
+   --------------------------------------------------------------------------
+   Only the HIDING halves are gated on .has-js, which app.js sets the moment it
+   runs. With scripting off or broken the sections simply render, instead of a
+   page where everything below the hero is clipped to nothing forever.
    ========================================================================== */
-.reveal {
+.has-js .reveal {
   opacity: 0;
   transform: translateY(28px);
   transition: opacity 0.8s var(--ease-out), transform 0.8s var(--ease-out);
@@ -432,7 +436,7 @@ a {
 }
 
 /* Staggered children */
-.reveal [data-stagger] {
+.has-js .reveal [data-stagger] {
   opacity: 0;
   transform: translateY(20px);
   transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out);
@@ -1219,6 +1223,7 @@ textarea {
   color: rgba(255, 255, 255, 0.6);
 }
 
+.site-footer h3,
 .site-footer h4 {
   margin: 0 0 var(--s-4);
   color: #fff;
@@ -1371,6 +1376,81 @@ textarea {
 
 .info-card .button.primary {
   color: #ffffff;
+}
+
+/* ==========================================================================
+   Recognitions - the federation's official standing, as a set
+   --------------------------------------------------------------------------
+   Same family as .info-card (border, radius, shadow, and the 3px gradient
+   accent that widens on hover), re-cut year-first: the date carries the weight
+   because the date is what a prospective partner is actually checking.
+   ========================================================================== */
+.recognition-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--s-5);
+}
+
+.recognition {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: var(--s-6) var(--s-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  text-align: center;
+  transition: transform 0.4s var(--ease-out), box-shadow 0.4s var(--ease-out),
+    border-color 0.4s var(--ease-out);
+}
+
+.recognition::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--gradient-red);
+  transform: scaleX(0.2);
+  transform-origin: left;
+  transition: transform 0.5s var(--ease-out);
+}
+
+.recognition:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--line-strong);
+}
+
+.recognition:hover::before {
+  transform: scaleX(1);
+}
+
+.recognition .year {
+  font-family: var(--font-display);
+  font-size: clamp(34px, 4vw, 48px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--red);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.recognition .body {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.recognition .note {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-soft);
 }
 
 /* ==========================================================================
@@ -1537,4 +1617,1060 @@ textarea {
   .scroll-cue {
     display: none;
   }
+}
+
+/* Moved here from store.css: donation.html and the other hand-written pages
+   load only this stylesheet, so a notice defined in store.css could never
+   reach them. The generated pages load both, so nothing changes for them. */
+/* ==========================================================================
+   Notice - a page-level message, not a form status
+   --------------------------------------------------------------------------
+   .form-status is one line under a field and .legal .callout is scoped to the
+   policy pages, so neither fits "the store cannot take your money yet". This
+   borrows the callout geometry and the left accent bar red already uses, and
+   adds room for a heading and real alternatives.
+   ========================================================================== */
+.notice {
+  margin: 0 0 var(--s-5);
+  padding: var(--s-5);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--red);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--red-tint);
+  box-shadow: var(--shadow-xs);
+}
+
+.notice h2 {
+  margin: 0 0 6px;
+  font-size: 19px;
+  line-height: 1.25;
+  text-transform: none;
+  letter-spacing: -0.01em;
+}
+
+.notice p {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.notice p:last-child {
+  margin-bottom: 0;
+}
+
+.notice .notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  margin-top: var(--s-4);
+}
+
+/* Quieter variant for a shop-wide heads-up, where red would shout. */
+.notice.is-info {
+  border-left-color: var(--ink-deep);
+  background: var(--soft);
+}
+
+
+/* ==========================================================================
+   Donation form
+   --------------------------------------------------------------------------
+   Lives here rather than in store.css because donation.html is hand-written and
+   loads only this stylesheet. Every colour pair below is one the contrast audit
+   already covers: ink on surface, white on red, muted on surface.
+   ========================================================================== */
+.donate-form {
+  max-width: 560px;
+  margin-top: var(--s-6);
+}
+
+.donate-group {
+  margin: 0 0 var(--s-5);
+  padding: 0;
+  border: 0;
+}
+
+.donate-group legend {
+  padding: 0;
+  margin-bottom: 10px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.donate-choice {
+  display: flex;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+}
+
+.donate-choice label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 18px;
+  border: 1px solid var(--line-input);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.25s var(--ease-out), background 0.25s var(--ease-out);
+}
+
+.donate-choice label:has(input:checked) {
+  border-color: var(--red);
+  background: var(--red-tint);
+}
+
+.donate-choice input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--red);
+}
+
+.donate-amounts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--s-3);
+}
+
+.donate-amount {
+  padding: 14px 10px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.25s var(--ease-out), background 0.25s var(--ease-out),
+    color 0.25s var(--ease-out);
+}
+
+.donate-amount:hover {
+  border-color: var(--red);
+}
+
+.donate-amount.is-chosen {
+  border-color: var(--red);
+  background: var(--red);
+  color: var(--surface);
+}
+
+.donate-custom {
+  margin-top: var(--s-3);
+}
+
+.donate-optional {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted-soft);
+}
+
+.donate-fee {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: var(--s-4) 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--soft);
+  font-size: 14.5px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.donate-fee input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  accent-color: var(--red);
+}
+
+.donate-fineprint {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+@media (max-width: 560px) {
+  .donate-amounts {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+
+/* ==========================================================================
+   News: cards, share menu, post pages, full-screen photo
+   --------------------------------------------------------------------------
+   In styles.css because news.html is hand-written and loads only this sheet.
+   Colour pairs reuse ones the contrast audit already covers.
+   ========================================================================== */
+.news-card {
+  position: relative;
+}
+
+.news-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.news-thumb {
+  display: block;
+  width: calc(100% + (var(--s-5) * 2));
+  margin: calc(var(--s-6) * -1) 0 var(--s-4) calc(var(--s-5) * -1);
+  padding: 0;
+  border: 0;
+  background: var(--soft);
+  cursor: zoom-in;
+}
+
+.news-thumb img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.news-date {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-soft);
+}
+
+.news-card h2 {
+  font-size: 21px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.news-card h2 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.news-card h2 a:hover {
+  color: var(--red);
+}
+
+.news-contact {
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.news-contact a {
+  color: var(--red-dark);
+  font-weight: 700;
+}
+
+/* --- Share ---------------------------------------------------------------- */
+.share {
+  position: relative;
+  flex: none;
+}
+
+.share-toggle {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 18px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.25s var(--ease-out), color 0.25s var(--ease-out);
+}
+
+.share-toggle:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.share-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  min-width: 212px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.share-menu[hidden] {
+  display: none;
+}
+
+.share-menu a,
+.share-menu button {
+  padding: 9px 12px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: none;
+  font-family: var(--font-body);
+  font-size: 14px;
+  text-align: left;
+  text-decoration: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.share-menu a:hover,
+.share-menu button:hover {
+  background: var(--soft);
+  color: var(--red-dark);
+}
+
+/* --- A single post -------------------------------------------------------- */
+.post-meta {
+  margin: var(--s-3) 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-soft);
+}
+
+.post-article {
+  max-width: 68ch;
+  margin: 0 auto;
+}
+
+.post-article p {
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.post-figure {
+  display: block;
+  width: 100%;
+  margin: 0 0 var(--s-5);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--soft);
+  overflow: hidden;
+  cursor: zoom-in;
+  position: relative;
+}
+
+.post-figure img {
+  display: block;
+  width: 100%;
+}
+
+.post-figure-hint {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--ink-deep);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.post-contact {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.post-contact a {
+  color: var(--red-dark);
+  font-weight: 700;
+}
+
+.post-share {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--s-5);
+}
+
+/* --- Full-screen photo ---------------------------------------------------- */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: none;
+  place-items: center;
+  padding: var(--s-5);
+  background: rgba(5, 7, 10, 0.94);
+}
+
+.lightbox.is-open {
+  display: grid;
+}
+
+.lightbox img {
+  max-width: 100%;
+  max-height: 90vh;
+  border-radius: var(--radius-sm);
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  background: transparent;
+  color: #ffffff;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+body.has-lightbox {
+  overflow: hidden;
+}
+
+@media (max-width: 560px) {
+  .share-menu {
+    right: auto;
+    left: 0;
+  }
+}
+
+
+/* ==========================================================================
+   Chat widget
+   --------------------------------------------------------------------------
+   Ships on every public page. In styles.css because the hand-written pages load
+   only this sheet. The panel is a fixed card on desktop and a near-full sheet on
+   phones, but never the whole screen - the close control stays reachable.
+   ========================================================================== */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.chat-widget {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 150;
+  font-family: var(--font-body);
+}
+
+.chat-launcher {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--red);
+  color: #ffffff;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  transition: background 0.25s var(--ease-out), transform 0.25s var(--ease-out);
+}
+
+.chat-launcher:hover {
+  background: var(--red-bright);
+  transform: translateY(-2px);
+}
+
+.chat-launcher svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.chat-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--ink-deep);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.chat-panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 12px);
+  display: flex;
+  flex-direction: column;
+  width: min(360px, calc(100vw - 40px));
+  height: min(520px, calc(100vh - 140px));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.chat-panel[hidden] {
+  display: none;
+}
+
+.chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: 14px 16px;
+  background: var(--red);
+  color: #ffffff;
+}
+
+.chat-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.chat-availability {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  /* Solid white, not a faded one: at 80% on this red it measures 4.13:1 and
+     fails AA for small text. Hierarchy comes from size and weight instead. */
+  font-weight: 400;
+  color: #ffffff;
+}
+
+.chat-close {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chat-log {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  overflow-y: auto;
+  background: var(--soft);
+}
+
+.chat-bubble {
+  max-width: 82%;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+}
+
+.chat-bubble p {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.chat-bubble.is-you {
+  align-self: flex-end;
+  background: var(--red);
+  color: #ffffff;
+  border-bottom-right-radius: var(--radius-xs);
+}
+
+.chat-bubble.is-them {
+  align-self: flex-start;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  border-bottom-left-radius: var(--radius-xs);
+}
+
+.chat-note {
+  margin: 0;
+  padding: 2px 4px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-align: center;
+}
+
+.chat-form {
+  border-top: 1px solid var(--line);
+  padding: 12px;
+  background: var(--surface);
+}
+
+.chat-email {
+  display: block;
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.chat-email[hidden] {
+  display: none;
+}
+
+.chat-email span {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted-soft);
+}
+
+.chat-email input {
+  margin-top: 6px;
+  padding: 9px 12px;
+  font-size: 14px;
+}
+
+.chat-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.chat-row textarea {
+  flex: 1;
+  min-height: 42px;
+  max-height: 120px;
+  padding: 10px 12px;
+  font-size: 14.5px;
+  resize: none;
+}
+
+.chat-send {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--red);
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.25s var(--ease-out);
+}
+
+.chat-send:hover {
+  background: var(--red-bright);
+}
+
+.chat-send svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+@media (max-width: 560px) {
+  .chat-widget {
+    right: 14px;
+    bottom: 14px;
+  }
+
+  .chat-launcher-label {
+    display: none;
+  }
+
+  .chat-launcher {
+    padding: 14px;
+  }
+
+  .chat-panel {
+    position: fixed;
+    right: 14px;
+    left: 14px;
+    bottom: 80px;
+    width: auto;
+    /* Never the full screen: the page stays visible above it, so closing the
+       chat is never the only way out. */
+    height: min(70vh, 460px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-launcher:hover {
+    transform: none;
+  }
+}
+
+
+/* ==========================================================================
+   Registration form
+   --------------------------------------------------------------------------
+   In styles.css because membership.html is hand-written. Reuses the donation
+   form's tokens so the two read as one family.
+   ========================================================================== */
+.membership-form {
+  max-width: 640px;
+  margin-top: var(--s-6);
+}
+
+.reg-group {
+  margin: 0 0 var(--s-5);
+  padding: 0;
+  border: 0;
+}
+
+.reg-group[hidden] {
+  display: none;
+}
+
+.reg-group legend {
+  padding: 0;
+  margin-bottom: 10px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.reg-note {
+  margin: 0 0 var(--s-4);
+  padding: 12px 14px;
+  border-left: 3px solid var(--line-strong);
+  background: var(--soft);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.reg-optional {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted-soft);
+}
+
+.reg-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-3);
+}
+
+.reg-tiers {
+  display: grid;
+  gap: var(--s-3);
+}
+
+.reg-tier {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 18px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.25s var(--ease-out), background 0.25s var(--ease-out);
+}
+
+.reg-tier:has(input:checked) {
+  border-color: var(--red);
+  background: var(--red-tint);
+}
+
+.reg-tier input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--red);
+}
+
+.reg-tier-label {
+  flex: 1;
+  font-weight: 700;
+}
+
+.reg-tier-price {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--red);
+}
+
+@media (max-width: 560px) {
+  .reg-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* ==========================================================================
+   Roster
+   --------------------------------------------------------------------------
+   styles.css has no table rules at all, and the program pages do not load
+   store.css, so this is the site's first public table. Modelled on .info-card
+   chrome. Below 720px each row becomes a stacked card driven by the data-label
+   on every cell - a five-column table at phone width is unreadable, and this
+   list runs to dozens of players.
+   ========================================================================== */
+.roster-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+  max-width: none;
+}
+
+.roster-tabs {
+  display: flex;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--s-5);
+}
+
+.roster-tab {
+  padding: 10px 18px;
+  border: 1px solid var(--line-input);
+  border-radius: 999px;
+  background: var(--surface);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.25s var(--ease-out), background 0.25s var(--ease-out),
+    color 0.25s var(--ease-out);
+}
+
+.roster-tab span {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.roster-tab:hover {
+  border-color: var(--red);
+}
+
+.roster-tab.is-active {
+  border-color: var(--red);
+  background: var(--red);
+  color: var(--surface);
+}
+
+.roster-tab.is-active span {
+  color: var(--surface);
+}
+
+.roster-group {
+  margin-bottom: var(--s-6);
+}
+
+.roster-group-title {
+  margin: 0 0 var(--s-3);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.roster-group-title span {
+  color: var(--muted-soft);
+}
+
+.roster .table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.roster-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+}
+
+.roster-table th,
+.roster-table td {
+  padding: 12px 16px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--line);
+}
+
+.roster-table thead th {
+  background: var(--soft);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.roster-table tbody tr:last-child th,
+.roster-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.roster-table tbody tr:hover {
+  background: var(--red-tint);
+}
+
+.roster-number {
+  width: 64px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--red);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.roster-name {
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.roster-empty {
+  padding: var(--s-7) var(--s-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: center;
+}
+
+.roster-empty h3 {
+  margin: 0 0 8px;
+}
+
+.roster-empty p {
+  margin: 0 auto var(--s-4);
+  max-width: 48ch;
+  color: var(--muted);
+}
+
+@media (max-width: 720px) {
+  .roster .table-scroll {
+    overflow-x: visible;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .roster-table thead {
+    /* The column headings move into each cell as data-label below. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .roster-table tbody tr {
+    display: grid;
+    gap: 2px;
+    margin-bottom: var(--s-3);
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .roster-table tbody tr:hover {
+    background: var(--surface);
+  }
+
+  .roster-table td {
+    display: grid;
+    grid-template-columns: 42% 1fr;
+    gap: 10px;
+    padding: 3px 0;
+    border: 0;
+  }
+
+  .roster-table td::before {
+    content: attr(data-label);
+    font-size: 11.5px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .roster-name,
+  .roster-number {
+    white-space: normal;
+  }
+}
+
+
+/* The sign-in icon is the federation's cedar, not a generic person glyph.
+   .icon-button svg is stroke-only (fill: none), which would render the cedar as
+   empty outlines - these shapes are solid, so this one icon is filled instead. */
+.icon-button svg.cedar-icon {
+  fill: currentColor;
+  stroke: none;
 }

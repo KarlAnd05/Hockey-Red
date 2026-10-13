@@ -21,7 +21,7 @@
         <span>Lebanon Hockey</span>
       </a>
 
-      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+      <button class="menu-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-nav">
         <span></span>
         <span></span>
         <span></span>
@@ -42,7 +42,7 @@
 
       <div class="header-tools">
         <a class="icon-button" data-account-link href="login.html">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <svg class="cedar-icon" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,6 38,28 62,28"/><polygon points="50,20 30,46 70,46"/><polygon points="50,34 22,66 78,66"/><rect x="46" y="66" width="8" height="14"/><rect x="18" y="82" width="64" height="5" rx="2.5"/></svg>
           <span class="label">Sign In</span>
         </a>
         <a class="icon-button" data-admin-link href="/admin/" hidden>
@@ -84,6 +84,26 @@
 
       <section class="page-section" data-page="shop">
         <div class="shell">
+          <div data-payments-notice></div>
+
+          <div class="shop-intro">
+            <p>
+              Every jersey is made to order. We work hard to get them to you, and we will
+              always give you an honest delivery time-frame rather than a promise we cannot keep.
+            </p>
+            <p>
+              Choose your jersey type, colour and size on each product page. If you need anything
+              clarified before ordering, email
+              <a href="mailto:sales@lebanonhockey.com">sales@lebanonhockey.com</a> &mdash; thank you
+              for your trust.
+            </p>
+            <p class="shop-intro-pay">
+              Prefer to pay another way? Interac e-Transfer within Canada to
+              <strong>sales@lebanonhockey.com</strong>, or PayPal from outside Canada to
+              <strong>support@lebanonhockey.com</strong>.
+            </p>
+          </div>
+
           <div class="shop-toolbar">
             <div class="search-field">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -109,12 +129,12 @@
           <div class="shop-layout">
             <aside class="filter-panel" data-filter-panel aria-label="Product filters">
               <div class="filter-group">
-                <h3>Category</h3>
+                <h2>Category</h2>
                 <div class="filter-options" data-category-filters></div>
               </div>
 
               <div class="filter-group">
-                <h3>Price</h3>
+                <h2>Price</h2>
                 <div class="price-row">
                   <input type="number" min="0" placeholder="Min" aria-label="Minimum price" data-min-price>
                   <span>to</span>
@@ -123,7 +143,7 @@
               </div>
 
               <div class="filter-group">
-                <h3>Availability</h3>
+                <h2>Availability</h2>
                 <label class="checkbox-row">
                   <input type="checkbox" data-in-stock>
                   In stock only
@@ -155,7 +175,7 @@
           </p>
         </div>
         <div>
-          <h4>Programs</h4>
+          <h3>Programs</h3>
           <ul class="footer-links">
             <li><a href="mens-program.html">Men's Program</a></li>
             <li><a href="womens-program.html">Women's Program</a></li>
@@ -164,7 +184,7 @@
           </ul>
         </div>
         <div>
-          <h4>Federation</h4>
+          <h3>Federation</h3>
           <ul class="footer-links">
             <li><a href="about.html">About</a></li>
             <li><a href="news.html">News</a></li>
@@ -173,7 +193,7 @@
           </ul>
         </div>
         <div>
-          <h4>Shop</h4>
+          <h3>Shop</h3>
           <ul class="footer-links">
             <li><a href="shop.html">All products</a></li>
             <li><a href="cart.html">Cart</a></li>
@@ -195,6 +215,7 @@
 
     <script src="./assets/api.js"></script>
     <script src="./assets/app.js"></script>
+    <script src="./assets/chat.js"></script>
     <script src="./assets/store.js"></script>
   </body>
 </html>

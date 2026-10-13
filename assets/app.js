@@ -4,6 +4,10 @@
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// The reveal transition only applies once scripting is confirmed live, so a
+// failed or slow script can never leave the page below the fold invisible.
+document.documentElement.classList.add('has-js');
+
 /* --------------------------------------------------------------------------
    Mobile navigation
    -------------------------------------------------------------------------- */
@@ -67,6 +71,11 @@ if (reduceMotion || !('IntersectionObserver' in window)) {
   );
 
   revealTargets.forEach((el) => revealObserver.observe(el));
+
+  // Safety net: if the observer never fires (headless capture, an unusual
+  // scroll container, a bfcache restore), show everything anyway rather than
+  // shipping an invisible page.
+  setTimeout(() => revealTargets.forEach((el) => el.classList.add('is-visible')), 2500);
 }
 
 /* --------------------------------------------------------------------------

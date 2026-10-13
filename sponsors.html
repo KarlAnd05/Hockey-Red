@@ -23,7 +23,7 @@
         <span>Lebanon Hockey</span>
       </a>
 
-      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+      <button class="menu-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-nav">
         <span></span>
         <span></span>
         <span></span>
@@ -43,7 +43,7 @@
       </nav>
       <div class="header-tools">
         <a class="icon-button" data-account-link href="login.html">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <svg class="cedar-icon" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,6 38,28 62,28"/><polygon points="50,20 30,46 70,46"/><polygon points="50,34 22,66 78,66"/><rect x="46" y="66" width="8" height="14"/><rect x="18" y="82" width="64" height="5" rx="2.5"/></svg>
           <span class="label">Sign In</span>
         </a>
         <a class="icon-button" data-admin-link href="/admin/" hidden>
@@ -78,8 +78,96 @@
 
       <section class="section reveal">
         <div class="section-heading">
+          <p class="eyebrow">Public Record</p>
+          <h2>Recognised by</h2>
+          <p>
+            The Lebanese Ice Hockey Federation is the body that gives Lebanon a
+            seat at the international table. Every claim below is a matter of
+            public record.
+          </p>
+        </div>
+
+        <div class="recognition-grid">
+          <div class="recognition" data-stagger>
+            <p class="year">2018</p>
+            <p class="body">Ministry of Sports Decree</p>
+            <p class="note">Renewed 2022</p>
+          </div>
+
+          <div class="recognition" data-stagger>
+            <p class="year">2019</p>
+            <p class="body">IIHF Associate Member</p>
+            <p class="note">Int. Ice Hockey Federation</p>
+          </div>
+
+          <div class="recognition" data-stagger>
+            <p class="year">2020</p>
+            <p class="body">Lebanese Olympic Committee</p>
+            <p class="note">Member federation</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading">
+          <p class="eyebrow">Federation Leadership</p>
+          <h2>Who you would be working with</h2>
+          <p>The federation&rsquo;s board, by office.</p>
+        </div>
+
+        <div class="card-grid">
+          <article class="info-card" data-stagger>
+            <h3>Charles El-Mir</h3>
+            <p>President</p>
+          </article>
+
+          <article class="info-card" data-stagger>
+            <h3>Mohamad Teliani</h3>
+            <p>Vice President, Hockey Operations</p>
+          </article>
+
+          <article class="info-card" data-stagger>
+            <h3>Paul Doumet</h3>
+            <p>General Secretary</p>
+          </article>
+
+          <article class="info-card" data-stagger>
+            <h3>Joanne Diwan</h3>
+            <p>Director, Women's Development</p>
+          </article>
+
+          <article class="info-card" data-stagger>
+            <h3>Nancy Constantin</h3>
+            <p>Director, Accounting</p>
+          </article>
+
+          <article class="info-card" data-stagger>
+            <h3>Maurizio Sottile</h3>
+            <p>Director, Technical &amp; Ice Rink Project</p>
+          </article>
+
+          <article class="info-card" data-stagger>
+            <h3>Lara Karam</h3>
+            <p>Director, Public Relations</p>
+          </article>
+
+          <article class="info-card" data-stagger>
+            <h3>Wissam Salaman</h3>
+            <p>Director, Digital Marketing</p>
+          </article>
+
+          <article class="info-card" data-stagger>
+            <h3>Bachir Kazan</h3>
+            <p>Director, Legal Affairs</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading">
           <p class="eyebrow">Partnership Tiers</p>
           <h2>Current partners</h2>
+          <p>Organisations already backing the federation.</p>
         </div>
 
         <div class="card-grid">
@@ -144,7 +232,7 @@
           </p>
         </div>
         <div>
-          <h4>Programs</h4>
+          <h3>Programs</h3>
           <ul class="footer-links">
             <li><a href="mens-program.html">Men's Program</a></li>
             <li><a href="womens-program.html">Women's Program</a></li>
@@ -153,7 +241,7 @@
           </ul>
         </div>
         <div>
-          <h4>Federation</h4>
+          <h3>Federation</h3>
           <ul class="footer-links">
             <li><a href="about.html">About</a></li>
             <li><a href="news.html">News</a></li>
@@ -162,7 +250,7 @@
           </ul>
         </div>
         <div>
-          <h4>Shop</h4>
+          <h3>Shop</h3>
           <ul class="footer-links">
             <li><a href="shop.html">All products</a></li>
             <li><a href="cart.html">Cart</a></li>
@@ -185,5 +273,7 @@
     <script src="./assets/api.js"></script>
 
     <script src="./assets/app.js"></script>
+
+    <script src="./assets/chat.js"></script>
   </body>
 </html>

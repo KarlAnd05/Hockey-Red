@@ -23,7 +23,7 @@
         <span>Lebanon Hockey</span>
       </a>
 
-      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+      <button class="menu-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-nav">
         <span></span>
         <span></span>
         <span></span>
@@ -43,7 +43,7 @@
       </nav>
       <div class="header-tools">
         <a class="icon-button" data-account-link href="login.html">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <svg class="cedar-icon" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,6 38,28 62,28"/><polygon points="50,20 30,46 70,46"/><polygon points="50,34 22,66 78,66"/><rect x="46" y="66" width="8" height="14"/><rect x="18" y="82" width="64" height="5" rx="2.5"/></svg>
           <span class="label">Sign In</span>
         </a>
         <a class="icon-button" data-admin-link href="/admin/" hidden>
@@ -73,7 +73,7 @@
         </div>
       </section>
 
-      <section class="section reveal">
+      <section class="section reveal" data-page="donation">
         <div class="section-heading">
           <p class="eyebrow">Ways To Give</p>
           <h2>One-time or monthly</h2>
@@ -82,10 +82,55 @@
             your own amount, given once or as a recurring monthly gift.
           </p>
         </div>
-        <div class="section-cta">
-          <a class="button primary" href="mailto:info@lebanonhockey.com?subject=Donation%20Inquiry">Contact Us to Donate</a>
-        </div>
-        <p class="muted-note">Secure online giving is coming soon to this site.</p>
+
+        <div data-payments-notice></div>
+        <div data-donate-result></div>
+
+        <form class="form-card donate-form" data-donate-form novalidate>
+          <fieldset class="donate-group">
+            <legend>How often</legend>
+            <div class="donate-choice" role="radiogroup" aria-label="How often">
+              <label><input type="radio" name="kind" value="one_time" checked> One time</label>
+              <label><input type="radio" name="kind" value="monthly"> Every month</label>
+            </div>
+          </fieldset>
+
+          <fieldset class="donate-group">
+            <legend>Amount</legend>
+            <div class="donate-amounts" data-amount-buttons></div>
+            <label class="donate-custom">
+              Or enter your own amount
+              <input type="number" name="customAmount" min="20" step="1" inputmode="decimal" placeholder="0.00">
+            </label>
+          </fieldset>
+
+          <label>
+            Your name <span class="donate-optional">(optional)</span>
+            <input type="text" name="name" autocomplete="name" maxlength="160">
+          </label>
+
+          <label>
+            Email
+            <input type="email" name="email" autocomplete="email" required maxlength="200">
+          </label>
+
+          <label>
+            Message <span class="donate-optional">(optional)</span>
+            <textarea name="message" rows="3" maxlength="1000"></textarea>
+          </label>
+
+          <label class="donate-fee">
+            <input type="checkbox" name="coverFee" data-cover-fee>
+            <span data-fee-label>Also cover the transaction fee</span>
+          </label>
+
+          <button type="submit" class="button primary block" data-donate-submit>Continue to payment</button>
+          <p class="form-status" data-donate-status role="status"></p>
+          <p class="muted-note" data-secure-note>
+            You are sent to Stripe to pay; card details never reach our servers.
+            A confirmation is emailed to you &mdash; it is not an official tax receipt.
+          </p>
+        </form>
       </section>
 
       <section class="impact-section reveal">
@@ -111,7 +156,7 @@
           </p>
         </div>
         <div>
-          <h4>Programs</h4>
+          <h3>Programs</h3>
           <ul class="footer-links">
             <li><a href="mens-program.html">Men's Program</a></li>
             <li><a href="womens-program.html">Women's Program</a></li>
@@ -120,7 +165,7 @@
           </ul>
         </div>
         <div>
-          <h4>Federation</h4>
+          <h3>Federation</h3>
           <ul class="footer-links">
             <li><a href="about.html">About</a></li>
             <li><a href="news.html">News</a></li>
@@ -129,7 +174,7 @@
           </ul>
         </div>
         <div>
-          <h4>Shop</h4>
+          <h3>Shop</h3>
           <ul class="footer-links">
             <li><a href="shop.html">All products</a></li>
             <li><a href="cart.html">Cart</a></li>
@@ -152,5 +197,9 @@
     <script src="./assets/api.js"></script>
 
     <script src="./assets/app.js"></script>
+
+    <script src="./assets/chat.js"></script>
+
+    <script src="./assets/store.js"></script>
   </body>
 </html>

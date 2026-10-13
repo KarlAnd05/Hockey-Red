@@ -186,6 +186,203 @@ CREATE TABLE IF NOT EXISTS email_log (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_email_log_order ON email_log(order_id);
+
+/* Editable page copy. One row per heading/paragraph/list item on a public page.
+   default_value mirrors what the .html file itself says; value is the
+   federation's edit and is what visitors see. Keeping both means a rebuild can
+   change the source without silently discarding someone's rewrite. See
+   server/lib/content.js for how keys are formed and applied. */
+CREATE TABLE IF NOT EXISTS content_blocks (
+  key           TEXT PRIMARY KEY,
+  page          TEXT NOT NULL,
+  tag           TEXT NOT NULL,
+  nth           INTEGER NOT NULL DEFAULT 1,
+  label         TEXT NOT NULL DEFAULT '',
+  default_value TEXT NOT NULL DEFAULT '',
+  value         TEXT,
+  orphaned      INTEGER NOT NULL DEFAULT 0,
+  sort_order    INTEGER NOT NULL DEFAULT 0,
+  updated_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_content_blocks_page ON content_blocks(page);
+
+/* Donations. Deliberately NOT the orders table: a gift has no cart, no stock to
+   decrement, no shipping address and no order number, markOrderPaid would clear
+   the donor's live shopping cart, and invoices.order_id is UNIQUE so a monthly
+   gift could never have one receipt per cycle. Monthly giving also needs states
+   an order has no concept of. */
+CREATE TABLE IF NOT EXISTS donations (
+  id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind                   TEXT NOT NULL DEFAULT 'one_time'
+                           CHECK (kind IN ('one_time', 'monthly')),
+  status                 TEXT NOT NULL DEFAULT 'pending'
+                           CHECK (status IN ('pending', 'paid', 'active', 'past_due', 'canceled', 'failed')),
+  email                  TEXT NOT NULL DEFAULT '',
+  name                   TEXT NOT NULL DEFAULT '',
+  message                TEXT NOT NULL DEFAULT '',
+  amount_cents           INTEGER NOT NULL DEFAULT 0,
+  fee_cents              INTEGER NOT NULL DEFAULT 0,
+  total_cents            INTEGER NOT NULL DEFAULT 0,
+  currency               TEXT NOT NULL DEFAULT 'cad',
+  stripe_session_id      TEXT,
+  stripe_customer_id     TEXT,
+  stripe_subscription_id TEXT,
+  manage_token_hash      TEXT,
+  created_at             TEXT NOT NULL DEFAULT (datetime('now')),
+  paid_at                TEXT,
+  canceled_at            TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_donations_status ON donations(status);
+CREATE INDEX IF NOT EXISTS idx_donations_session ON donations(stripe_session_id);
+CREATE INDEX IF NOT EXISTS idx_donations_subscription ON donations(stripe_subscription_id);
+CREATE INDEX IF NOT EXISTS idx_donations_manage ON donations(manage_token_hash);
+
+/* One row per actual charge. A monthly gift produces an invoice.paid every cycle
+   and Stripe redelivers webhooks, so the UNIQUE on the invoice id is what turns a
+   replay into a harmless no-op instead of a double count. Do not drop it. */
+CREATE TABLE IF NOT EXISTS donation_payments (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  donation_id       INTEGER NOT NULL REFERENCES donations(id) ON DELETE CASCADE,
+  stripe_invoice_id TEXT UNIQUE,
+  amount_cents      INTEGER NOT NULL DEFAULT 0,
+  currency          TEXT NOT NULL DEFAULT 'cad',
+  status            TEXT NOT NULL DEFAULT 'paid' CHECK (status IN ('paid', 'failed')),
+  created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_donation_payments_donation ON donation_payments(donation_id);
+
+/* Small key/value store for state that must survive a restart but does not earn a
+   table: currently the Stripe Product id reused for every monthly gift, so the
+   dashboard does not accumulate one Product per subscriber. */
+CREATE TABLE IF NOT EXISTS app_meta (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+/* charge.refunded looks orders up by this column; it had no index. */
+CREATE INDEX IF NOT EXISTS idx_orders_payment_intent ON orders(stripe_payment_intent);
+
+/* News posts. Previously three hand-written cards in news.html; now data so the
+   federation can publish without a code change. Each post has its own page at
+   /news/<slug> so a shared link previews with its own title and photo instead of
+   the generic newsroom. The share_* columns are filled in by the admin and only
+   the ones actually set are offered in the share menu. */
+CREATE TABLE IF NOT EXISTS news_posts (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug            TEXT NOT NULL UNIQUE,
+  title           TEXT NOT NULL,
+  category        TEXT NOT NULL DEFAULT '',
+  excerpt         TEXT NOT NULL DEFAULT '',
+  body            TEXT NOT NULL DEFAULT '',
+  image_url       TEXT NOT NULL DEFAULT '',
+  image_alt       TEXT NOT NULL DEFAULT '',
+  author          TEXT NOT NULL DEFAULT '',
+  contact_email   TEXT NOT NULL DEFAULT '',
+  contact_phone   TEXT NOT NULL DEFAULT '',
+  share_facebook  TEXT NOT NULL DEFAULT '',
+  share_instagram TEXT NOT NULL DEFAULT '',
+  share_x         TEXT NOT NULL DEFAULT '',
+  published_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  active          INTEGER NOT NULL DEFAULT 1,
+  sort_order      INTEGER NOT NULL DEFAULT 0,
+  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at      TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_news_posts_active ON news_posts(active, published_at);
+
+/* Visitor chat.
+   A thread is identified by a token the visitor's browser keeps, NOT by the
+   lh_sid session: loginSession rotates that token and deletes the old row, and
+   purgeExpiredSessions drops it at 30 days - either would strand a conversation
+   mid-sentence. Only the hash is stored here; the raw token lives in the
+   visitor's localStorage and nowhere else, exactly like a session token.
+   notified_at exists so a visitor typing five short lines does not send five
+   separate emails. */
+CREATE TABLE IF NOT EXISTS chat_threads (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  token_hash      TEXT NOT NULL UNIQUE,
+  visitor_name    TEXT NOT NULL DEFAULT '',
+  visitor_email   TEXT NOT NULL DEFAULT '',
+  status          TEXT NOT NULL DEFAULT 'open'
+                    CHECK (status IN ('open', 'closed', 'blocked')),
+  last_message_at TEXT,
+  notified_at     TEXT,
+  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_chat_threads_activity ON chat_threads(status, last_message_at);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  thread_id  INTEGER NOT NULL REFERENCES chat_threads(id) ON DELETE CASCADE,
+  sender     TEXT NOT NULL CHECK (sender IN ('visitor', 'admin')),
+  body       TEXT NOT NULL,
+  read_at    TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_thread ON chat_messages(thread_id, id);
+
+/* Membership registrations - the LIHF player form.
+   This is the most sensitive collection on the site: passport-form names, date
+   of birth, and both parents' citizenships, submitted in part by or for minors.
+   It is admin-only, never logged, and described in privacy.html. The parental
+   citizenship fields exist because IIHF eligibility turns on them, and the form
+   says so rather than asking without explanation.
+   Payment state is tracked separately from the submission: a registration is a
+   real record whether or not the fee has been paid yet. */
+CREATE TABLE IF NOT EXISTS registrations (
+  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+  tier                  TEXT NOT NULL CHECK (tier IN ('board', 'player', 'supporter')),
+  amount_cents          INTEGER NOT NULL DEFAULT 0,
+  currency              TEXT NOT NULL DEFAULT 'cad',
+  payment_status        TEXT NOT NULL DEFAULT 'unpaid'
+                          CHECK (payment_status IN ('unpaid', 'pending', 'paid')),
+  stripe_session_id     TEXT,
+  email                 TEXT NOT NULL,
+  phone                 TEXT NOT NULL DEFAULT '',
+  first_name            TEXT NOT NULL DEFAULT '',
+  last_name             TEXT NOT NULL DEFAULT '',
+  middle_name           TEXT NOT NULL DEFAULT '',
+  date_of_birth         TEXT NOT NULL DEFAULT '',
+  position              TEXT NOT NULL DEFAULT '',
+  shoots                TEXT NOT NULL DEFAULT '',
+  height_cm             INTEGER,
+  weight_kg             INTEGER,
+  place_of_birth        TEXT NOT NULL DEFAULT '',
+  country_of_birth      TEXT NOT NULL DEFAULT '',
+  city_of_residence     TEXT NOT NULL DEFAULT '',
+  citizenship           TEXT NOT NULL DEFAULT '',
+  citizenship_second    TEXT NOT NULL DEFAULT '',
+  citizenship_father    TEXT NOT NULL DEFAULT '',
+  citizenship_mother    TEXT NOT NULL DEFAULT '',
+  highest_level_played  TEXT NOT NULL DEFAULT '',
+  message               TEXT NOT NULL DEFAULT '',
+  created_at            TEXT NOT NULL DEFAULT (datetime('now')),
+  paid_at               TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_registrations_status ON registrations(payment_status, created_at);
+CREATE INDEX IF NOT EXISTS idx_registrations_session ON registrations(stripe_session_id);
+
+/* Team rosters.
+   program keeps the men's and women's lists apart: the live site has a women's
+   roster and no men's one, so the men's page must render an empty state rather
+   than an empty table. jersey_number is nullable on purpose - the federation's
+   own roster shows a dash for players without one. */
+CREATE TABLE IF NOT EXISTS roster_players (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  program       TEXT NOT NULL CHECK (program IN ('mens', 'womens')),
+  team          TEXT NOT NULL DEFAULT 'national' CHECK (team IN ('national', 'next_gen')),
+  position      TEXT NOT NULL CHECK (position IN ('forward', 'defence', 'goaltender')),
+  jersey_number INTEGER,
+  name          TEXT NOT NULL,
+  recent_team   TEXT NOT NULL DEFAULT '',
+  resides       TEXT NOT NULL DEFAULT '',
+  hometown      TEXT NOT NULL DEFAULT '',
+  active        INTEGER NOT NULL DEFAULT 1,
+  sort_order    INTEGER NOT NULL DEFAULT 0,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_roster_lookup ON roster_players(program, team, position, sort_order);
 `);
 
 /* ==========================================================================
@@ -367,4 +564,76 @@ export function seedDiscounts() {
   `).run('CEDAR10', 'percent', 10, 5000, 0);
 
   return true;
+}
+
+
+/* ==========================================================================
+   Seed - the three posts that were hard-coded in news.html
+   --------------------------------------------------------------------------
+   Contact details come from the federation's live site, where they are already
+   published. Nothing here is invented.
+   ========================================================================== */
+const SEED_NEWS = [
+  {
+    slug: 'ricardo-tabet-named-mens-gm',
+    title: "Ricardo Tabet Named Men's GM",
+    category: 'Management',
+    excerpt:
+      "Ricardo Tabet has joined the federation as General Manager of the Men's National Team.",
+    body:
+      "Ricardo Tabet has joined the federation as General Manager of the Men's National Team, bringing his background as a former player and team captain to the role.",
+    author: 'Lebanese Ice Hockey Federation',
+    contact_email: 'ricardo.tabet@lebanonhockey.com',
+    contact_phone: '+1 514-575-4419',
+    published_at: '2023-03-13',
+    sort_order: 1,
+  },
+  {
+    slug: 'jocelyn-trepanier-joins-womens-program',
+    title: "Jocelyn Trépanier Joins Women's Program",
+    category: 'Coaching',
+    excerpt:
+      "Appointed General Manager and Co-Head Coach of the Women's National Team.",
+    body:
+      "Jocelyn Trépanier has been appointed General Manager and Co-Head Coach of the Women's National Team, bringing a decade of competitive minor hockey management experience.\n\nHis expertise and passion for the sport will contribute to the continued growth of the Women's National Team program.",
+    author: 'Charles El-Mir',
+    contact_email: 'jocelyn.trepanier@lebanonhockey.com',
+    contact_phone: '+1 613-724-7680',
+    published_at: '2025-06-23',
+    sort_order: 2,
+  },
+  {
+    slug: 'gregg-kennedy-named-mens-head-coach',
+    title: "Gregg Kennedy Named Men's Head Coach",
+    category: 'Coaching',
+    excerpt:
+      "Gregg Kennedy takes on Head Coach and development coordinator for the Men's National Team.",
+    body:
+      "Gregg Kennedy has taken on the role of Head Coach and development coordinator for the Men's National Team, drawing on roughly three decades of coaching and player development experience.",
+    author: 'Lebanese Ice Hockey Federation',
+    contact_email: 'gregg.kennedy@lebanonhockey.com',
+    contact_phone: '+1 613-612-9499',
+    published_at: '2022-09-12',
+    sort_order: 3,
+  },
+];
+
+export function seedNews() {
+  const count = db.prepare('SELECT COUNT(*) AS n FROM news_posts').get().n;
+  if (count > 0) return false;
+
+  const insert = db.prepare(`
+    INSERT INTO news_posts
+      (slug, title, category, excerpt, body, author, contact_email, contact_phone, published_at, sort_order)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  for (const post of SEED_NEWS) {
+    insert.run(
+      post.slug, post.title, post.category, post.excerpt, post.body,
+      post.author, post.contact_email, post.contact_phone, post.published_at, post.sort_order
+    );
+  }
+
+  return SEED_NEWS.length;
 }

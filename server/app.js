@@ -1,15 +1,21 @@
 import express from 'express';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, statSync, readFileSync } from 'node:fs';
 import { join, normalize, relative, extname } from 'node:path';
 
 import { config } from './config.js';
 import { rootDir } from './db.js';
 import { attachSession, csrfProtection, requireAdmin } from './middleware/auth.js';
+import { applyContent } from './lib/content.js';
 
 import { authRouter } from './routes/auth.js';
 import { catalogRouter } from './routes/catalog.js';
 import { cartRouter } from './routes/cart.js';
 import { checkoutRouter } from './routes/checkout.js';
+import { donateRouter } from './routes/donate.js';
+import { newsRouter, newsPageRouter } from './routes/news.js';
+import { chatRouter } from './routes/chat.js';
+import { membershipRouter } from './routes/membership.js';
+import { rosterRouter } from './routes/roster.js';
 import { ordersRouter } from './routes/orders.js';
 import { adminRouter } from './routes/admin.js';
 import { webhookRouter } from './routes/webhook.js';
@@ -71,6 +77,11 @@ export function createApp() {
   app.use('/api', catalogRouter);
   app.use('/api', cartRouter);
   app.use('/api', checkoutRouter);
+  app.use('/api', donateRouter);
+  app.use('/api', newsRouter);
+  app.use('/api', chatRouter);
+  app.use('/api', membershipRouter);
+  app.use('/api', rosterRouter);
   app.use('/api', ordersRouter);
   app.use('/api/admin', adminRouter);
 
@@ -131,10 +142,27 @@ export function createApp() {
     if (extname(filePath) !== '.html') return next();
 
     res.setHeader('Cache-Control', 'no-store');
-    res.sendFile(filePath);
+
+    /* Read rather than sendFile, so edited copy from the admin area can be swapped
+       in on the way out. With no edits recorded, applyContent returns the file
+       unchanged. A failure here must not take the page down -- fall back to the
+       file on disk, which is always a valid page. */
+    const page = pathname.replace(/^\//, '');
+    try {
+      const html = readFileSync(filePath, 'utf8');
+      res.type('html').send(applyContent(page, html));
+    } catch (error) {
+      console.error('[content] serving %s without edits:', page, error.message);
+      res.sendFile(filePath);
+    }
   });
 
   /* --- Favicon ------------------------------------------------------------- */
+  /* --- One news post per URL ----------------------------------------------
+     Sits outside the root-*.html allow-list above, so it needs its own handler.
+     Server-rendered because link-preview crawlers do not run JavaScript. */
+  app.use(newsPageRouter);
+
   app.get('/favicon.ico', (req, res) => {
     res.redirect(302, '/assets/LIHF-01_edited.png');
   });

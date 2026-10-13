@@ -23,7 +23,7 @@
         <span>Lebanon Hockey</span>
       </a>
 
-      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+      <button class="menu-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-nav">
         <span></span>
         <span></span>
         <span></span>
@@ -43,7 +43,7 @@
       </nav>
       <div class="header-tools">
         <a class="icon-button" data-account-link href="login.html">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <svg class="cedar-icon" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,6 38,28 62,28"/><polygon points="50,20 30,46 70,46"/><polygon points="50,34 22,66 78,66"/><rect x="46" y="66" width="8" height="14"/><rect x="18" y="82" width="64" height="5" rx="2.5"/></svg>
           <span class="label">Sign In</span>
         </a>
         <a class="icon-button" data-admin-link href="/admin/" hidden>
@@ -112,17 +112,117 @@
             <span>Welcome to Lebanon Hockey</span>
           </div>
           <p>
-            Online registration and secure payment are on the way. For now,
-            contact the federation directly to get started.
+            Register below and we will be in touch. Players are asked for a few
+            eligibility details the IIHF requires; supporters are not.
           </p>
           <div class="section-cta">
-            <a class="button primary" href="mailto:info@lebanonhockey.com?subject=Membership%20Inquiry">Start Your Registration</a>
+            <a class="button primary" href="#register">Start Your Registration</a>
           </div>
         </div>
         <div class="image-stack">
           <img src="./assets/4a228d_1d9e390333a542fc823388443446aa62~mv2.jpg" alt="Lebanon Hockey event">
           <img src="./assets/9f8b7bd5-596a-404a-967e-881d71d892ff_JPG.jpg" alt="Lebanon Hockey community">
         </div>
+      </section>
+
+      <section id="register" class="section tinted reveal" data-page="membership">
+        <div class="section-heading">
+          <p class="eyebrow">Registration</p>
+          <h2>LIHF registration form</h2>
+          <p>All players must complete this form. It takes a couple of minutes.</p>
+        </div>
+
+        <div data-membership-notice></div>
+        <div data-membership-result></div>
+
+        <form class="form-card membership-form" data-membership-form novalidate>
+          <fieldset class="reg-group">
+            <legend>Membership type</legend>
+            <div class="reg-tiers" data-tier-choice role="radiogroup" aria-label="Membership type"></div>
+          </fieldset>
+
+          <fieldset class="reg-group">
+            <legend>Contact</legend>
+            <div class="reg-grid">
+              <label>Email <input type="email" name="email" autocomplete="email" required maxlength="200"></label>
+              <label>Phone <input type="tel" name="phone" autocomplete="tel" maxlength="60"></label>
+            </div>
+            <label>City of residence <input type="text" name="cityOfResidence" maxlength="120"></label>
+          </fieldset>
+
+          <fieldset class="reg-group">
+            <legend>Your name</legend>
+            <p class="reg-note">As written in your passport, so it matches your travel documents.</p>
+            <div class="reg-grid">
+              <label>First name <input type="text" name="firstName" autocomplete="given-name" required maxlength="120"></label>
+              <label>Middle name <span class="reg-optional">(optional)</span> <input type="text" name="middleName" maxlength="120"></label>
+            </div>
+            <label>Last name <input type="text" name="lastName" autocomplete="family-name" required maxlength="120"></label>
+          </fieldset>
+
+          <fieldset class="reg-group" data-eligibility hidden>
+            <legend>Eligibility and playing details</legend>
+            <p class="reg-note">
+              The IIHF decides who may represent Lebanon internationally, and that decision
+              rests on citizenship &mdash; including a parent&rsquo;s. That is the only reason
+              these are asked. Supporters are never asked for them.
+            </p>
+
+            <div class="reg-grid">
+              <label>Date of birth <input type="date" name="dateOfBirth"></label>
+              <label>Highest level played <input type="text" name="highestLevelPlayed" maxlength="160"></label>
+            </div>
+
+            <div class="reg-grid">
+              <label>Position
+                <select name="position">
+                  <option value="">Choose...</option>
+                  <option>Forward</option>
+                  <option>Defence</option>
+                  <option>Goaltender</option>
+                </select>
+              </label>
+              <label>Shoots
+                <select name="shoots">
+                  <option value="">Choose...</option>
+                  <option>Left</option>
+                  <option>Right</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="reg-grid">
+              <label>Height (cm) <input type="number" name="heightCm" min="50" max="260" inputmode="numeric"></label>
+              <label>Weight (kg) <input type="number" name="weightKg" min="20" max="250" inputmode="numeric"></label>
+            </div>
+
+            <div class="reg-grid">
+              <label>Place of birth (city) <input type="text" name="placeOfBirth" maxlength="120"></label>
+              <label>Country of birth <input type="text" name="countryOfBirth" maxlength="120"></label>
+            </div>
+
+            <div class="reg-grid">
+              <label>Citizenship <input type="text" name="citizenship" maxlength="120"></label>
+              <label>Second citizenship <span class="reg-optional">(optional)</span> <input type="text" name="citizenshipSecond" maxlength="120"></label>
+            </div>
+
+            <div class="reg-grid">
+              <label>Citizenship of father <input type="text" name="citizenshipFather" maxlength="120"></label>
+              <label>Citizenship of mother <input type="text" name="citizenshipMother" maxlength="120"></label>
+            </div>
+          </fieldset>
+
+          <label>Message <span class="reg-optional">(optional)</span>
+            <textarea name="message" rows="3" maxlength="2000"></textarea>
+          </label>
+
+          <button type="submit" class="button primary block" data-membership-submit>Continue</button>
+          <p class="form-status" data-membership-status role="status"></p>
+          <p class="muted-note">
+            Your details are used to process this registration and are not shared with anyone
+            outside the federation. See our <a href="privacy.html">privacy policy</a>.
+          </p>
+        </form>
       </section>
     </main>
 
@@ -139,7 +239,7 @@
           </p>
         </div>
         <div>
-          <h4>Programs</h4>
+          <h3>Programs</h3>
           <ul class="footer-links">
             <li><a href="mens-program.html">Men's Program</a></li>
             <li><a href="womens-program.html">Women's Program</a></li>
@@ -148,7 +248,7 @@
           </ul>
         </div>
         <div>
-          <h4>Federation</h4>
+          <h3>Federation</h3>
           <ul class="footer-links">
             <li><a href="about.html">About</a></li>
             <li><a href="news.html">News</a></li>
@@ -157,7 +257,7 @@
           </ul>
         </div>
         <div>
-          <h4>Shop</h4>
+          <h3>Shop</h3>
           <ul class="footer-links">
             <li><a href="shop.html">All products</a></li>
             <li><a href="cart.html">Cart</a></li>
@@ -180,5 +280,9 @@
     <script src="./assets/api.js"></script>
 
     <script src="./assets/app.js"></script>
+
+    <script src="./assets/membership.js"></script>
+
+    <script src="./assets/chat.js"></script>
   </body>
 </html>

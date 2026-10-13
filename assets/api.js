@@ -61,7 +61,15 @@
     const method = (opts.method || 'GET').toUpperCase();
     const headers = Object.assign({}, opts.headers);
 
-    if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
+    /* rawBody sends bytes untouched (a File, Blob or ArrayBuffer) with a
+       caller-chosen Content-Type. Used for image uploads: express.json() does
+       not match application/octet-stream, so those requests bypass the global
+       256kb body limit and are capped by their own route instead. */
+    if (opts.rawBody !== undefined) {
+      headers['Content-Type'] = opts.contentType || 'application/octet-stream';
+    } else if (opts.body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (method !== 'GET' && method !== 'HEAD') {
       const token = await ensureCsrf(Boolean(opts._retried));
@@ -72,7 +80,12 @@
       method,
       credentials: 'same-origin',
       headers,
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      body:
+        opts.rawBody !== undefined
+          ? opts.rawBody
+          : opts.body === undefined
+            ? undefined
+            : JSON.stringify(opts.body),
     });
 
     if (response.status === 403 && method !== 'GET' && !opts._retried) {

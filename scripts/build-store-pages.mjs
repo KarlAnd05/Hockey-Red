@@ -54,7 +54,7 @@ function shell({ file, title, description, active, body, scripts = [], bodyClass
         <span>Lebanon Hockey</span>
       </a>
 
-      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+      <button class="menu-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-nav">
         <span></span>
         <span></span>
         <span></span>
@@ -66,7 +66,7 @@ ${nav}
 
       <div class="header-tools">
         <a class="icon-button" data-account-link href="login.html">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <svg class="cedar-icon" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,6 38,28 62,28"/><polygon points="50,20 30,46 70,46"/><polygon points="50,34 22,66 78,66"/><rect x="46" y="66" width="8" height="14"/><rect x="18" y="82" width="64" height="5" rx="2.5"/></svg>
           <span class="label">Sign In</span>
         </a>
         <a class="icon-button" data-admin-link href="/admin/" hidden>
@@ -97,7 +97,7 @@ ${body}
           </p>
         </div>
         <div>
-          <h4>Programs</h4>
+          <h3>Programs</h3>
           <ul class="footer-links">
             <li><a href="mens-program.html">Men's Program</a></li>
             <li><a href="womens-program.html">Women's Program</a></li>
@@ -106,7 +106,7 @@ ${body}
           </ul>
         </div>
         <div>
-          <h4>Federation</h4>
+          <h3>Federation</h3>
           <ul class="footer-links">
             <li><a href="about.html">About</a></li>
             <li><a href="news.html">News</a></li>
@@ -115,7 +115,7 @@ ${body}
           </ul>
         </div>
         <div>
-          <h4>Shop</h4>
+          <h3>Shop</h3>
           <ul class="footer-links">
             <li><a href="shop.html">All products</a></li>
             <li><a href="cart.html">Cart</a></li>
@@ -137,6 +137,7 @@ ${body}
 
     <script src="./assets/api.js"></script>
     <script src="./assets/app.js"></script>
+    <script src="./assets/chat.js"></script>
 ${extraScripts}
   </body>
 </html>
@@ -182,6 +183,26 @@ pages.push({
 
       <section class="page-section" data-page="shop">
         <div class="shell">
+          <div data-payments-notice></div>
+
+          <div class="shop-intro">
+            <p>
+              Every jersey is made to order. We work hard to get them to you, and we will
+              always give you an honest delivery time-frame rather than a promise we cannot keep.
+            </p>
+            <p>
+              Choose your jersey type, colour and size on each product page. If you need anything
+              clarified before ordering, email
+              <a href="mailto:sales@lebanonhockey.com">sales@lebanonhockey.com</a> &mdash; thank you
+              for your trust.
+            </p>
+            <p class="shop-intro-pay">
+              Prefer to pay another way? Interac e-Transfer within Canada to
+              <strong>sales@lebanonhockey.com</strong>, or PayPal from outside Canada to
+              <strong>support@lebanonhockey.com</strong>.
+            </p>
+          </div>
+
           <div class="shop-toolbar">
             <div class="search-field">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -207,12 +228,12 @@ pages.push({
           <div class="shop-layout">
             <aside class="filter-panel" data-filter-panel aria-label="Product filters">
               <div class="filter-group">
-                <h3>Category</h3>
+                <h2>Category</h2>
                 <div class="filter-options" data-category-filters></div>
               </div>
 
               <div class="filter-group">
-                <h3>Price</h3>
+                <h2>Price</h2>
                 <div class="price-row">
                   <input type="number" min="0" placeholder="Min" aria-label="Minimum price" data-min-price>
                   <span>to</span>
@@ -221,7 +242,7 @@ pages.push({
               </div>
 
               <div class="filter-group">
-                <h3>Availability</h3>
+                <h2>Availability</h2>
                 <label class="checkbox-row">
                   <input type="checkbox" data-in-stock>
                   In stock only
@@ -273,6 +294,8 @@ pages.push({
 
           <h1 style="font-size:clamp(32px,4vw,52px);margin-bottom:var(--s-6)">Your Cart</h1>
 
+          <div data-payments-notice></div>
+
           <div class="cart-layout">
             <div class="cart-lines" data-cart-lines></div>
             <aside class="summary-panel" data-cart-summary aria-label="Order summary"></aside>
@@ -299,6 +322,8 @@ pages.push({
           </nav>
 
           <h1 style="font-size:clamp(32px,4vw,52px);margin-bottom:var(--s-6)">Checkout</h1>
+
+          <div data-payments-notice></div>
 
           <div class="checkout-layout">
             <form class="form-card" data-checkout-form novalidate>
@@ -346,7 +371,7 @@ pages.push({
 
               <button type="submit" class="button primary block">Pay securely</button>
               <p class="form-status" data-checkout-status role="status"></p>
-              <p style="margin:0;font-size:13px;color:var(--muted);line-height:1.6">
+              <p data-secure-note style="margin:0;font-size:13px;color:var(--muted);line-height:1.6">
                 You are sent to Stripe to pay; card details never reach our servers.
                 By ordering you accept our <a href="refund-policy.html" style="color:var(--red);font-weight:700">refund policy</a>
                 &mdash; 30 days to return unworn items, personalized items final sale.
@@ -715,7 +740,32 @@ pages.push(
                   <td>To keep you signed in and remember your cart. See the
                       <a href="cookies.html">Cookie Policy</a>.</td>
                 </tr>
-              </tbody>
+                              <tr>
+                  <td>
+                    Membership registration: your name as written in your passport, date of birth,
+                    place and country of birth, city of residence, citizenship and second citizenship,
+                    your parents' citizenships, and playing details (position, shoots, height, weight,
+                    highest level played)
+                  </td>
+                  <td>When you submit the membership registration form, and only for player, coach and
+                      management memberships &mdash; supporter memberships are never asked for them</td>
+                  <td>
+                    To process your registration and to establish eligibility to represent Lebanon.
+                    The International Ice Hockey Federation decides eligibility on the basis of
+                    citizenship, including a parent's, which is the only reason we ask
+                  </td>
+                </tr>
+                <tr>
+                  <td>Chat messages, and an email address if you choose to give one</td>
+                  <td>When you use the chat on the site</td>
+                  <td>To answer your question, and to reply later if you leave before we can</td>
+                </tr>
+                <tr>
+                  <td>Donation details: name, email address, and any message you add</td>
+                  <td>When you make a one-time or monthly donation</td>
+                  <td>To confirm your gift and, for a monthly gift, to let you change or stop it</td>
+                </tr>
+</tbody>
             </table>
           </div>
 
@@ -815,6 +865,18 @@ pages.push(
           <p>
             Our shop is intended for adults. Youth programs are registered by a parent or guardian, who
             provides any information about a minor and consents to its use on the child's behalf.
+          </p>
+          <p>
+            Membership registration for a player under 18 must be completed by a parent or guardian. The
+            eligibility details it asks for &mdash; date of birth, place of birth and citizenships &mdash;
+            are held for federation and IIHF purposes only, are visible to federation administrators, and
+            are never published.
+          </p>
+          <p>
+            Team rosters published on this site name athletes, including athletes under 18, with the team
+            they most recently played for and the town they are from. A parent or guardian may ask us at any
+            time to remove a minor's name, or to show initials instead, and we will do so without question.
+            Write to <a href="mailto:info@lebanonhockey.com">info@lebanonhockey.com</a>.
           </p>
 
           <h2>11. If you are in the EEA or the UK</h2>
@@ -916,6 +978,17 @@ pages.push(
             The shop uses your browser's <code>sessionStorage</code> to remember a discount code you have typed
             while you move between the cart and checkout. That information stays on your device, is cleared
             when you close the tab, and is never sent anywhere except when you apply the code.
+          </p>
+          <p>
+            If you start a chat with us, your browser's <code>localStorage</code> keeps one value,
+            <code>lh_chat_token</code>, so your conversation is still there as you move from page to page or
+            come back later. It identifies the conversation and nothing else &mdash; it is not an account, it is
+            not linked to your name unless you tell us, and it is not used to follow you around the site.
+            Clearing your browser storage ends that conversation; you can always start a new one.
+          </p>
+          <p>
+            Chat messages are kept so the federation can answer you and refer back to what was asked. They are
+            held for up to 12 months, the same as messages sent through the contact form, and then deleted.
           </p>
 
           <h2>Controlling cookies</h2>

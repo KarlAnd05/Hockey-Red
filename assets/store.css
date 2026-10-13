@@ -98,6 +98,7 @@
   box-shadow: var(--shadow-sm);
 }
 
+.filter-group h2,
 .filter-group h3 {
   margin-bottom: var(--s-3);
   font-size: 12px;
@@ -374,8 +375,15 @@
   text-align: center;
 }
 
+/* The heading level varies by context -- h1 when the empty state IS the page,
+   h2 when the page already has a title -- so pin the size to the component
+   rather than to the level. */
+.empty-state h1,
+.empty-state h2,
 .empty-state h3 {
   margin: 0;
+  font-size: 21px;
+  line-height: 1.25;
 }
 
 .empty-state p {
@@ -1084,6 +1092,11 @@
 .status-badge.is-fulfilled { background: #e9eef7; color: #2c4a86; }
 .status-badge.is-cancelled { background: var(--soft-2); color: #63696f; }
 .status-badge.is-refunded { background: var(--red-tint); color: var(--red-dark); }
+/* Donation states. 'canceled' is normalised to .is-cancelled in admin.js so the
+   two spellings do not both end up in this file. */
+.status-badge.is-active { background: #e7f6ee; color: #0f7a43; }
+.status-badge.is-past-due { background: #fdf3e0; color: #9a5b00; }
+.status-badge.is-failed { background: var(--red-tint); color: var(--red-dark); }
 
 /* ==========================================================================
    Footer legal links
@@ -1192,6 +1205,7 @@
 .legal .callout p:last-child {
   margin-bottom: 0;
 }
+
 
 .legal .note {
   margin: var(--s-5) 0;
@@ -1326,4 +1340,31 @@
     bottom: 12px;
     max-width: none;
   }
+}
+
+
+/* Shop intro - the federation's own copy about made-to-order jerseys. */
+.shop-intro {
+  max-width: 70ch;
+  margin: 0 0 var(--s-5);
+}
+
+.shop-intro p {
+  margin: 0 0 10px;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: var(--ink);
+}
+
+.shop-intro a {
+  color: var(--red-dark);
+  font-weight: 700;
+}
+
+.shop-intro-pay {
+  padding: 12px 14px;
+  border-left: 3px solid var(--line-strong);
+  background: var(--soft);
+  font-size: 14px !important;
+  color: var(--muted) !important;
 }

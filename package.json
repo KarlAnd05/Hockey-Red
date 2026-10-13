@@ -9,7 +9,9 @@
     "start": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env server/index.js",
     "create-admin": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/create-admin.mjs",
     "smoke": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/smoke-test.mjs",
-    "contrast": "node scripts/check-contrast.mjs"
+    "contrast": "node scripts/check-contrast.mjs",
+    "check-site": "node scripts/check-site.mjs",
+    "build": "node scripts/build-store-pages.mjs && node scripts/build-admin-pages.mjs"
   },
   "engines": {
     "node": ">=22.5.0"

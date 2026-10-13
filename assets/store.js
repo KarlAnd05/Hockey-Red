@@ -36,7 +36,60 @@
   /* ========================================================================
      Shop
      ======================================================================== */
+  /* The store can run with no payment provider configured. When it does, say so
+     in the visitor's terms and give them a way to actually order, instead of
+     letting them fill in an address and hit a 503 on submit. */
+  const PAYMENTS_NOTICE = {
+    heading: 'The online store is not taking card payments yet.',
+    body:
+      'Everything here is real and in stock — we are finishing the payment setup. ' +
+      'To order in the meantime, email us what you want and your size and we will invoice you directly.',
+    actions:
+      '<a class="button primary small" href="mailto:info@lebanonhockey.com?subject=Shop%20Order">Email your order</a>' +
+      '<a class="button ghost small" href="donation.html">Support us instead</a>',
+  };
+
+  /* The donation page needs its own wording: the shop notice sends people to
+     donation.html, which on that page would point at itself. */
+  const DONATIONS_NOTICE = {
+    heading: 'We cannot take card donations yet.',
+    body:
+      'The federation is finishing its payment setup. If you would like to give now, ' +
+      'email us and we will arrange it directly — your support matters either way.',
+    actions:
+      '<a class="button primary small" href="mailto:info@lebanonhockey.com?subject=Donation">Email the federation</a>' +
+      '<a class="button ghost small" href="sponsors.html">See partnership options</a>',
+  };
+
+  function renderPaymentsNotice(host, options) {
+    if (!host) return;
+    const compact = Boolean(options && options.compact);
+    const notice = options && options.donation ? DONATIONS_NOTICE : PAYMENTS_NOTICE;
+    host.innerHTML = `
+      <div class="notice${compact ? ' is-info' : ''}" role="status">
+        <h2>${escapeHtml(notice.heading)}</h2>
+        <p>${escapeHtml(notice.body)}</p>
+        <div class="notice-actions">${notice.actions}</div>
+      </div>`;
+  }
+
+  /* True only when the server says the secret key is present. */
+  async function paymentsEnabled() {
+    try {
+      const data = await window.LH.loadSession();
+      return data ? data.paymentsEnabled !== false : true;
+    } catch {
+      return true; // never block checkout because the probe failed
+    }
+  }
+
   function initShop(root) {
+    /* The honest place to mention it is before a cart is built, so the quieter
+       is-info variant goes under the shop hero. */
+    paymentsEnabled().then((ok) => {
+      if (!ok) renderPaymentsNotice(root.querySelector('[data-payments-notice]'), { compact: true });
+    });
+
     const grid = root.querySelector('[data-product-grid]');
     const categoryList = root.querySelector('[data-category-filters]');
     const searchInput = root.querySelector('[data-search]');
@@ -156,7 +209,7 @@
         if (!data.products.length) {
           grid.innerHTML = `
             <div class="empty-state" style="grid-column:1/-1">
-              <h3>Nothing matches those filters</h3>
+              <h2>Nothing matches those filters</h2>
               <p>Try a different search term, or clear the filters to see the full collection.</p>
               <button type="button" class="button ghost small" data-clear-inline>Clear filters</button>
             </div>`;
@@ -191,7 +244,7 @@
         renderPagination(data);
         syncUrl();
       } catch (error) {
-        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><h3>Could not load the shop</h3><p>${escapeHtml(error.message)}</p></div>`;
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><h2>Could not load the shop</h2><p>${escapeHtml(error.message)}</p></div>`;
       }
     }
 
@@ -318,7 +371,7 @@
       } catch (error) {
         root.innerHTML = `
           <div class="empty-state">
-            <h3>Product not found</h3>
+            <h1>Product not found</h1>
             <p>${escapeHtml(error.message)}</p>
             <a class="button primary small" href="shop.html">Back to the shop</a>
           </div>`;
@@ -359,7 +412,7 @@
             ${
               hasVariants
                 ? `<div class="filter-group">
-                     <h3>Size</h3>
+                     <h2>Size</h2>
                      <div class="variant-grid" data-variants>
                        ${product.variants
                          .map(
@@ -558,12 +611,17 @@
     const summaryHost = root.querySelector('[data-cart-summary]');
     let discount = storedDiscount();
 
+    // Say it here, before anyone is sent to fill in a shipping address.
+    paymentsEnabled().then((ok) => {
+      if (!ok) renderPaymentsNotice(root.querySelector('[data-payments-notice]'));
+    });
+
     async function load() {
       try {
         const cart = await api(`/api/cart?discount=${encodeURIComponent(discount)}`);
         render(cart);
       } catch (error) {
-        linesHost.innerHTML = `<div class="empty-state"><h3>Could not load your cart</h3><p>${escapeHtml(error.message)}</p></div>`;
+        linesHost.innerHTML = `<div class="empty-state"><h2>Could not load your cart</h2><p>${escapeHtml(error.message)}</p></div>`;
       }
     }
 
@@ -578,7 +636,7 @@
       if (!cart.items.length) {
         linesHost.innerHTML = `
           <div class="empty-state">
-            <h3>Your cart is empty</h3>
+            <h2>Your cart is empty</h2>
             <p>Browse the official collection and support Lebanese ice hockey.</p>
             <a class="button primary small" href="shop.html">Go to the shop</a>
           </div>`;
@@ -593,7 +651,7 @@
         <article class="cart-line" data-item="${item.id}">
           <img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.name)}">
           <div>
-            <h3><a href="product.html?slug=${encodeURIComponent(item.slug)}" style="text-decoration:none">${escapeHtml(item.name)}</a></h3>
+            <h2><a href="product.html?slug=${encodeURIComponent(item.slug)}" style="text-decoration:none">${escapeHtml(item.name)}</a></h2>
             ${item.variantName ? `<p class="variant">Size ${escapeHtml(item.variantName)}</p>` : ''}
             <p class="unit">${money(item.unitPriceCents, cart.currency)} each</p>
           </div>
@@ -750,6 +808,25 @@
       }
     });
 
+    /* Shut the form before it is filled in, rather than after it is submitted.
+       Also hide the "you are sent to Stripe" reassurance, which would otherwise
+       contradict a notice saying we cannot take cards. */
+    function closeCheckout() {
+      renderPaymentsNotice(root.querySelector('[data-payments-notice]'));
+      const submit = form?.querySelector('button[type="submit"]');
+      if (submit) {
+        submit.disabled = true;
+        submit.textContent = 'Payments unavailable';
+      }
+      const secure = root.querySelector('[data-secure-note]');
+      if (secure) secure.hidden = true;
+      if (statusEl) statusEl.textContent = '';
+    }
+
+    paymentsEnabled().then((ok) => {
+      if (!ok) closeCheckout();
+    });
+
     form?.addEventListener('submit', async (event) => {
       event.preventDefault();
 
@@ -772,6 +849,13 @@
 
         throw new Error('Payment could not be started.');
       } catch (error) {
+        /* Payments switched off between page load and submit, or the probe
+           never ran: show the same notice rather than a raw server string. */
+        if (error.payload && error.payload.code === 'payments_disabled') {
+          closeCheckout();
+          return;
+        }
+
         if (statusEl) {
           statusEl.className = 'form-status is-error';
           statusEl.textContent = error.message;
@@ -794,7 +878,7 @@
     let attempts = 0;
 
     if (!orderId) {
-      root.innerHTML = '<div class="empty-state"><h3>No order specified</h3><a class="button primary small" href="shop.html">Back to the shop</a></div>';
+      root.innerHTML = '<div class="empty-state"><h1>No order specified</h1><a class="button primary small" href="shop.html">Back to the shop</a></div>';
       return;
     }
 
@@ -879,12 +963,213 @@
 
         renderOrder(data.order);
       } catch (error) {
-        root.innerHTML = `<div class="empty-state"><h3>Could not load that order</h3><p>${escapeHtml(error.message)}</p><a class="button primary small" href="shop.html">Back to the shop</a></div>`;
+        root.innerHTML = `<div class="empty-state"><h1>Could not load that order</h1><p>${escapeHtml(error.message)}</p><a class="button primary small" href="shop.html">Back to the shop</a></div>`;
       }
     }
 
     renderWaiting();
     poll();
+  }
+
+  /* ========================================================================
+     Donation
+     ======================================================================== */
+  function initDonation(root) {
+    const form = root.querySelector('[data-donate-form]');
+    const statusEl = root.querySelector('[data-donate-status]');
+    const resultHost = root.querySelector('[data-donate-result]');
+    const amountHost = root.querySelector('[data-amount-buttons]');
+    const customInput = form?.querySelector('[name="customAmount"]');
+    const coverFee = form?.querySelector('[data-cover-fee]');
+    const feeLabel = form?.querySelector('[data-fee-label]');
+
+    let settings = null;
+    let chosenCents = 0;
+
+    /* The same gross-up the server applies. Served rather than hardcoded, so the
+       figure shown here and the figure charged cannot drift apart. */
+    function feeFor(cents) {
+      if (!settings || cents <= 0) return 0;
+      const total = Math.ceil((cents + settings.feeFixedCents) / (1 - settings.feePercent));
+      return Math.max(0, total - cents);
+    }
+
+    function refreshFeeLabel() {
+      if (!feeLabel) return;
+      const fee = feeFor(chosenCents);
+      feeLabel.textContent = fee
+        ? `Also add ${money(fee, settings.currency)} so the federation receives the full ${money(chosenCents, settings.currency)}`
+        : 'Also cover the transaction fee';
+    }
+
+    function selectAmount(cents, { fromCustom = false } = {}) {
+      chosenCents = Math.max(0, Math.round(cents) || 0);
+      amountHost?.querySelectorAll('button').forEach((b) => {
+        b.classList.toggle('is-chosen', Number(b.dataset.cents) === chosenCents);
+        b.setAttribute('aria-pressed', Number(b.dataset.cents) === chosenCents ? 'true' : 'false');
+      });
+      if (!fromCustom && customInput) customInput.value = '';
+      refreshFeeLabel();
+    }
+
+    function renderAmounts() {
+      if (!amountHost || !settings) return;
+      amountHost.innerHTML = settings.suggestedCents
+        .map(
+          (cents) =>
+            `<button type="button" class="donate-amount" data-cents="${cents}" aria-pressed="false">${escapeHtml(
+              money(cents, settings.currency)
+            )}</button>`
+        )
+        .join('');
+    }
+
+    /* Coming back from Stripe: show the outcome instead of the form. */
+    async function showResult(donationId, sessionId) {
+      if (form) form.hidden = true;
+      resultHost.innerHTML = '<div class="notice" role="status"><h2>Confirming your gift</h2><p>This usually takes a couple of seconds.</p></div>';
+
+      try {
+        const data = await api(
+          `/api/donate/status/${encodeURIComponent(donationId)}?session=${encodeURIComponent(sessionId)}`
+        );
+        const d = data.donation;
+        const settled = d.status === 'paid' || d.status === 'active';
+
+        resultHost.innerHTML = `
+          <div class="notice" role="status">
+            <h2>${settled ? 'Thank you' : 'Gift received'}</h2>
+            <p>${
+              settled
+                ? `Your ${d.isRecurring ? 'monthly gift of ' : 'gift of '}${escapeHtml(
+                    money(d.totalCents, d.currency)
+                  )}${d.isRecurring ? ' is set up' : ' has been received'}. A confirmation is on its way to ${escapeHtml(
+                    d.email
+                  )}.`
+                : `We have your gift and are waiting on the payment provider to confirm it. Status: ${escapeHtml(d.status)}.`
+            }</p>
+            ${
+              d.isRecurring
+                ? '<p>The confirmation email has a link you can use to change or stop your monthly gift at any time.</p>'
+                : ''
+            }
+            <p class="donate-fineprint">This is a confirmation of your payment, not an official tax receipt.</p>
+            <div class="notice-actions">
+              <a class="button primary small" href="index.html">Back to the site</a>
+            </div>
+          </div>`;
+      } catch (error) {
+        resultHost.innerHTML = `<div class="notice" role="status"><h2>We could not confirm that gift</h2><p>${escapeHtml(
+          error.message
+        )}</p></div>`;
+      }
+    }
+
+    function closeDonations() {
+      renderPaymentsNotice(root.querySelector('[data-payments-notice]'), { donation: true });
+      const submit = form?.querySelector('[data-donate-submit]');
+      if (submit) {
+        submit.disabled = true;
+        submit.textContent = 'Donations unavailable';
+      }
+      const secure = root.querySelector('[data-secure-note]');
+      if (secure) secure.hidden = true;
+      if (statusEl) statusEl.textContent = '';
+    }
+
+    (async () => {
+      const donationId = qs('donation');
+      const sessionId = qs('session');
+      if (donationId && sessionId) {
+        await showResult(donationId, sessionId);
+        return;
+      }
+
+      if (qs('cancelled')) toast('No payment was taken. Your gift was not completed.');
+
+      try {
+        settings = await api('/api/donate/config');
+      } catch {
+        settings = null;
+      }
+      if (!settings) return;
+
+      renderAmounts();
+
+      /* Drive the custom field's floor from the served config, so the buttons,
+         the input and the server's validation can never disagree about the
+         smallest gift the federation accepts. */
+      if (customInput) {
+        customInput.min = String(settings.minCents / 100);
+        customInput.placeholder = (settings.minCents / 100).toFixed(2);
+      }
+
+      selectAmount(settings.suggestedCents[1] ?? settings.suggestedCents[0]);
+      if (!settings.paymentsEnabled) closeDonations();
+    })();
+
+    amountHost?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-cents]');
+      if (button) selectAmount(Number(button.dataset.cents));
+    });
+
+    customInput?.addEventListener('input', () => {
+      const dollars = Number(customInput.value);
+      selectAmount(Number.isFinite(dollars) ? Math.round(dollars * 100) : 0, { fromCustom: true });
+    });
+
+    coverFee?.addEventListener('change', refreshFeeLabel);
+
+    form?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const submit = form.querySelector('[data-donate-submit]');
+      const values = Object.fromEntries(new FormData(form).entries());
+
+      if (chosenCents <= 0) {
+        if (statusEl) {
+          statusEl.className = 'form-status is-error';
+          statusEl.textContent = 'Choose an amount to give.';
+        }
+        return;
+      }
+
+      submit.disabled = true;
+      submit.textContent = 'Redirecting to payment...';
+      if (statusEl) statusEl.textContent = '';
+
+      try {
+        const result = await api('/api/donate', {
+          method: 'POST',
+          body: {
+            kind: values.kind === 'monthly' ? 'monthly' : 'one_time',
+            email: values.email,
+            name: values.name,
+            message: values.message,
+            amountCents: chosenCents,
+            coverFee: Boolean(coverFee?.checked),
+          },
+        });
+
+        if (result.url) {
+          window.location.href = result.url;
+          return;
+        }
+        throw new Error('The donation could not be started.');
+      } catch (error) {
+        if (error.payload && error.payload.code === 'payments_disabled') {
+          closeDonations();
+          return;
+        }
+        if (statusEl) {
+          statusEl.className = 'form-status is-error';
+          statusEl.textContent = error.message;
+        }
+        toast(error.message, 'error');
+        submit.disabled = false;
+        submit.textContent = 'Continue to payment';
+      }
+    });
   }
 
   /* ========================================================================
@@ -896,6 +1181,7 @@
     cart: initCart,
     checkout: initCheckout,
     confirmation: initConfirmation,
+    donation: initDonation,
   };
 
   Object.keys(pages).forEach((name) => {

@@ -21,7 +21,7 @@
         <span>Lebanon Hockey</span>
       </a>
 
-      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+      <button class="menu-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-nav">
         <span></span>
         <span></span>
         <span></span>
@@ -42,7 +42,7 @@
 
       <div class="header-tools">
         <a class="icon-button" data-account-link href="login.html">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <svg class="cedar-icon" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,6 38,28 62,28"/><polygon points="50,20 30,46 70,46"/><polygon points="50,34 22,66 78,66"/><rect x="46" y="66" width="8" height="14"/><rect x="18" y="82" width="64" height="5" rx="2.5"/></svg>
           <span class="label">Sign In</span>
         </a>
         <a class="icon-button" data-admin-link href="/admin/" hidden>
@@ -133,7 +133,32 @@
                   <td>To keep you signed in and remember your cart. See the
                       <a href="cookies.html">Cookie Policy</a>.</td>
                 </tr>
-              </tbody>
+                              <tr>
+                  <td>
+                    Membership registration: your name as written in your passport, date of birth,
+                    place and country of birth, city of residence, citizenship and second citizenship,
+                    your parents' citizenships, and playing details (position, shoots, height, weight,
+                    highest level played)
+                  </td>
+                  <td>When you submit the membership registration form, and only for player, coach and
+                      management memberships &mdash; supporter memberships are never asked for them</td>
+                  <td>
+                    To process your registration and to establish eligibility to represent Lebanon.
+                    The International Ice Hockey Federation decides eligibility on the basis of
+                    citizenship, including a parent's, which is the only reason we ask
+                  </td>
+                </tr>
+                <tr>
+                  <td>Chat messages, and an email address if you choose to give one</td>
+                  <td>When you use the chat on the site</td>
+                  <td>To answer your question, and to reply later if you leave before we can</td>
+                </tr>
+                <tr>
+                  <td>Donation details: name, email address, and any message you add</td>
+                  <td>When you make a one-time or monthly donation</td>
+                  <td>To confirm your gift and, for a monthly gift, to let you change or stop it</td>
+                </tr>
+</tbody>
             </table>
           </div>
 
@@ -234,6 +259,18 @@
             Our shop is intended for adults. Youth programs are registered by a parent or guardian, who
             provides any information about a minor and consents to its use on the child's behalf.
           </p>
+          <p>
+            Membership registration for a player under 18 must be completed by a parent or guardian. The
+            eligibility details it asks for &mdash; date of birth, place of birth and citizenships &mdash;
+            are held for federation and IIHF purposes only, are visible to federation administrators, and
+            are never published.
+          </p>
+          <p>
+            Team rosters published on this site name athletes, including athletes under 18, with the team
+            they most recently played for and the town they are from. A parent or guardian may ask us at any
+            time to remove a minor's name, or to show initials instead, and we will do so without question.
+            Write to <a href="mailto:info@lebanonhockey.com">info@lebanonhockey.com</a>.
+          </p>
 
           <h2>11. If you are in the EEA or the UK</h2>
           <p>
@@ -273,7 +310,7 @@
           </p>
         </div>
         <div>
-          <h4>Programs</h4>
+          <h3>Programs</h3>
           <ul class="footer-links">
             <li><a href="mens-program.html">Men's Program</a></li>
             <li><a href="womens-program.html">Women's Program</a></li>
@@ -282,7 +319,7 @@
           </ul>
         </div>
         <div>
-          <h4>Federation</h4>
+          <h3>Federation</h3>
           <ul class="footer-links">
             <li><a href="about.html">About</a></li>
             <li><a href="news.html">News</a></li>
@@ -291,7 +328,7 @@
           </ul>
         </div>
         <div>
-          <h4>Shop</h4>
+          <h3>Shop</h3>
           <ul class="footer-links">
             <li><a href="shop.html">All products</a></li>
             <li><a href="cart.html">Cart</a></li>
@@ -313,6 +350,7 @@
 
     <script src="./assets/api.js"></script>
     <script src="./assets/app.js"></script>
+    <script src="./assets/chat.js"></script>
 
   </body>
 </html>

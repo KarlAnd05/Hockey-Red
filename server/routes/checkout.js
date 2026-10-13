@@ -34,6 +34,23 @@ checkoutRouter.post('/checkout', async (req, res) => {
     return res.status(400).json({ error: 'A shipping address line and city are required.' });
   }
 
+  /* No payment provider, no order. This used to return after createPendingOrder,
+     which left a pending row behind on every attempt -- an order number spent
+     and nothing able to settle it. Validation above still runs, so the form
+     stays honest; only the write is skipped.
+
+     The exception is the local dev hatch ALLOW_DEV_CHECKOUT opens, where the
+     order must still be created so scripts/smoke-test.mjs can settle it through
+     /api/checkout/dev-complete without Stripe. */
+  const devCheckout = !config.isProduction && process.env.ALLOW_DEV_CHECKOUT === 'true';
+
+  if (!stripeEnabled && !devCheckout) {
+    return res.status(503).json({
+      error: 'The store is not taking card payments yet.',
+      code: 'payments_disabled',
+    });
+  }
+
   const created = createPendingOrder({
     cartId: cart?.id,
     userId: req.user?.id ?? null,
@@ -48,9 +65,13 @@ checkoutRouter.post('/checkout', async (req, res) => {
 
   const { orderId, detail } = created;
 
+  /* Only reachable through the dev hatch above, so the order exists and a local
+     run can settle it. No developer instruction in the message: this response
+     is rendered to a person. */
   if (!stripeEnabled) {
     return res.status(503).json({
-      error: 'Payments are not configured. Set STRIPE_SECRET_KEY to enable checkout.',
+      error: 'The store is not taking card payments yet.',
+      code: 'payments_disabled',
       orderId,
     });
   }

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { randomBytes } from 'node:crypto';
 import { db } from '../db.js';
-import { config } from '../config.js';
+import { config, stripeEnabled } from '../config.js';
 import { hashPassword, verifyPassword, validatePassword } from '../lib/password.js';
 import {
   loginSession,
@@ -51,6 +51,12 @@ authRouter.get('/session', (req, res) => {
     csrfToken: req.sessionRecord?.csrf_token || null,
     cartCount: cartCount(cart?.id),
     stripePublishableKey: config.stripePublishableKey,
+    /* Whether the store can actually take a card. Derived from the SECRET key,
+       never the publishable one: hosted Stripe Checkout does not need a
+       publishable key, so an empty one says nothing about whether we can
+       charge. The client uses this to disable checkout up front instead of
+       letting someone fill in an address and fail on submit. */
+    paymentsEnabled: stripeEnabled,
     currency: config.currency,
   });
 });

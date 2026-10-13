@@ -5,6 +5,28 @@ import { requireAdmin } from '../middleware/auth.js';
 import { serialiseOrder } from '../lib/orders.js';
 import { generateInvoicePdf } from '../lib/invoice.js';
 import { hashPassword, validatePassword } from '../lib/password.js';
+import { listContent, setContent, resetContent, syncAllPages } from '../lib/content.js';
+import { serialiseDonation } from '../lib/donations.js';
+import { listPosts, findPost, serialisePost, uniqueSlug as uniqueNewsSlug } from '../lib/news.js';
+import { saveImageBuffer, deleteUpload, UploadError, MAX_UPLOAD_BYTES } from '../lib/uploads.js';
+import {
+  listThreads,
+  findThread,
+  messagesSince,
+  addMessage,
+  setThreadStatus,
+  markRead,
+  serialiseMessage,
+} from '../lib/chat.js';
+import {
+  listRegistrations,
+  findRegistration,
+  serialiseRegistration,
+  markRegistrationPaid,
+  registrationsCsv,
+} from '../lib/registrations.js';
+import { listRoster, findPlayer, serialisePlayer, POSITIONS } from '../lib/roster.js';
+import { raw } from 'express';
 
 export const adminRouter = Router();
 
@@ -640,4 +662,365 @@ adminRouter.get('/messages', (req, res) => {
   res.json({
     messages: db.prepare('SELECT * FROM contact_messages ORDER BY id DESC LIMIT 200').all(),
   });
+});
+
+/* ==========================================================================
+   Image uploads
+   --------------------------------------------------------------------------
+   Raw bytes, not base64 in JSON: express.json() does not match
+   application/octet-stream, so the global 256kb body limit never applies here
+   and this route gets its own without loosening the one that protects every
+   other endpoint. All validation is in lib/uploads.js.
+   ========================================================================== */
+adminRouter.post('/uploads', raw({ type: 'application/octet-stream', limit: MAX_UPLOAD_BYTES + 1024 }), (req, res) => {
+  try {
+    const result = saveImageBuffer(req.body);
+    res.status(201).json(result);
+  } catch (error) {
+    if (error instanceof UploadError) return res.status(400).json({ error: error.message });
+    console.error('[upload]', error.message);
+    res.status(500).json({ error: 'That image could not be saved.' });
+  }
+});
+
+/* ==========================================================================
+   News posts
+   ========================================================================== */
+adminRouter.get('/news', (req, res) => {
+  res.json({ posts: listPosts({ includeInactive: true }).map(serialisePost) });
+});
+
+function readPostBody(body, existing = {}) {
+  const str = (key, fallback, max) =>
+    body[key] === undefined
+      ? fallback ?? ''
+      : String(body[key]).trim().slice(0, max);
+
+  return {
+    title: str('title', existing.title, 200),
+    category: str('category', existing.category, 60),
+    excerpt: str('excerpt', existing.excerpt, 400),
+    body: str('body', existing.body, 20000),
+    imageUrl: str('imageUrl', existing.image_url, 400),
+    imageAlt: str('imageAlt', existing.image_alt, 300),
+    author: str('author', existing.author, 120),
+    contactEmail: str('contactEmail', existing.contact_email, 200),
+    contactPhone: str('contactPhone', existing.contact_phone, 60),
+    shareFacebook: str('shareFacebook', existing.share_facebook, 400),
+    shareInstagram: str('shareInstagram', existing.share_instagram, 400),
+    shareX: str('shareX', existing.share_x, 400),
+    publishedAt: str('publishedAt', existing.published_at, 40),
+    active: body.active === undefined ? (existing.active ?? 1) : body.active ? 1 : 0,
+    sortOrder: Number(body.sortOrder ?? existing.sort_order ?? 0) || 0,
+  };
+}
+
+adminRouter.post('/news', (req, res) => {
+  const v = readPostBody(req.body || {});
+  if (!v.title) return res.status(400).json({ error: 'Give the post a title.' });
+
+  const slug = uniqueNewsSlug(req.body?.slug || v.title);
+  const info = db
+    .prepare(
+      `INSERT INTO news_posts
+         (slug, title, category, excerpt, body, image_url, image_alt, author,
+          contact_email, contact_phone, share_facebook, share_instagram, share_x,
+          published_at, active, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(NULLIF(?, ''), datetime('now')), ?, ?)`
+    )
+    .run(
+      slug, v.title, v.category, v.excerpt, v.body, v.imageUrl, v.imageAlt, v.author,
+      v.contactEmail, v.contactPhone, v.shareFacebook, v.shareInstagram, v.shareX,
+      v.publishedAt, v.active, v.sortOrder
+    );
+
+  res.status(201).json({ id: Number(info.lastInsertRowid), slug });
+});
+
+adminRouter.patch('/news/:id', (req, res) => {
+  const existing = findPost(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Post not found.' });
+
+  const v = readPostBody(req.body || {}, existing);
+  const slug = req.body?.slug ? uniqueNewsSlug(req.body.slug, existing.id) : existing.slug;
+
+  db.prepare(
+    `UPDATE news_posts
+        SET slug = ?, title = ?, category = ?, excerpt = ?, body = ?, image_url = ?,
+            image_alt = ?, author = ?, contact_email = ?, contact_phone = ?,
+            share_facebook = ?, share_instagram = ?, share_x = ?, published_at = ?,
+            active = ?, sort_order = ?, updated_at = datetime('now')
+      WHERE id = ?`
+  ).run(
+    slug, v.title, v.category, v.excerpt, v.body, v.imageUrl, v.imageAlt, v.author,
+    v.contactEmail, v.contactPhone, v.shareFacebook, v.shareInstagram, v.shareX,
+    v.publishedAt || existing.published_at, v.active, v.sortOrder, existing.id
+  );
+
+  res.json({ ok: true, slug });
+});
+
+adminRouter.delete('/news/:id', (req, res) => {
+  const existing = findPost(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Post not found.' });
+
+  db.prepare('DELETE FROM news_posts WHERE id = ?').run(existing.id);
+  // Take the image with it, so deleting posts does not silently fill the disk.
+  if (existing.image_url) deleteUpload(existing.image_url);
+
+  res.json({ ok: true });
+});
+
+/* ==========================================================================
+   Roster
+   ========================================================================== */
+adminRouter.get('/roster', (req, res) => {
+  const program = req.query.program === 'mens' ? 'mens' : 'womens';
+  res.json({ program, players: listRoster(program, { includeInactive: true }).map(serialisePlayer) });
+});
+
+function readPlayerBody(body, existing = {}) {
+  const str = (key, fallback, max) =>
+    body[key] === undefined ? fallback ?? '' : String(body[key]).trim().slice(0, max);
+
+  const number =
+    body.number === undefined || body.number === '' || body.number === null
+      ? existing.jersey_number ?? null
+      : Number(body.number);
+
+  return {
+    program: body.program === 'mens' ? 'mens' : body.program === 'womens' ? 'womens' : existing.program || 'womens',
+    team: body.team === 'next_gen' ? 'next_gen' : body.team === 'national' ? 'national' : existing.team || 'national',
+    position: POSITIONS.includes(body.position) ? body.position : existing.position || 'forward',
+    number: Number.isFinite(number) ? number : null,
+    name: str('name', existing.name, 160),
+    recentTeam: str('recentTeam', existing.recent_team, 200),
+    resides: str('resides', existing.resides, 120),
+    hometown: str('hometown', existing.hometown, 120),
+    active: body.active === undefined ? (existing.active ?? 1) : body.active ? 1 : 0,
+    sortOrder: Number(body.sortOrder ?? existing.sort_order ?? 0) || 0,
+  };
+}
+
+adminRouter.post('/roster', (req, res) => {
+  const v = readPlayerBody(req.body || {});
+  if (!v.name) return res.status(400).json({ error: "Enter the player's name." });
+
+  const info = db
+    .prepare(
+      `INSERT INTO roster_players
+         (program, team, position, jersey_number, name, recent_team, resides, hometown, active, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(v.program, v.team, v.position, v.number, v.name, v.recentTeam, v.resides, v.hometown, v.active, v.sortOrder);
+
+  res.status(201).json({ id: Number(info.lastInsertRowid) });
+});
+
+adminRouter.patch('/roster/:id', (req, res) => {
+  const existing = findPlayer(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Player not found.' });
+
+  const v = readPlayerBody(req.body || {}, existing);
+  db.prepare(
+    `UPDATE roster_players
+        SET program = ?, team = ?, position = ?, jersey_number = ?, name = ?,
+            recent_team = ?, resides = ?, hometown = ?, active = ?, sort_order = ?
+      WHERE id = ?`
+  ).run(
+    v.program, v.team, v.position, v.number, v.name,
+    v.recentTeam, v.resides, v.hometown, v.active, v.sortOrder, existing.id
+  );
+
+  res.json({ ok: true });
+});
+
+/* Hiding a player (active = 0) is how a removal request from a parent or
+   guardian is honoured without losing the federation's own record. */
+adminRouter.delete('/roster/:id', (req, res) => {
+  const existing = findPlayer(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Player not found.' });
+  db.prepare('DELETE FROM roster_players WHERE id = ?').run(existing.id);
+  res.json({ ok: true });
+});
+
+/* ==========================================================================
+   Membership registrations
+   ========================================================================== */
+adminRouter.get('/registrations', (req, res) => {
+  const registrations = listRegistrations();
+  res.json({
+    registrations,
+    currency: config.currency,
+    totals: {
+      count: registrations.length,
+      paid: registrations.filter((r) => r.paymentStatus === 'paid').length,
+      unpaid: registrations.filter((r) => r.paymentStatus !== 'paid').length,
+      collectedCents: registrations
+        .filter((r) => r.paymentStatus === 'paid')
+        .reduce((n, r) => n + r.amountCents, 0),
+    },
+  });
+});
+
+/* The federation's own copy of its records. Not linked from the public site and
+   behind requireAdmin like everything else here. */
+adminRouter.get('/registrations.csv', (req, res) => {
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="lihf-registrations.csv"');
+  res.setHeader('Cache-Control', 'no-store');
+  res.send(registrationsCsv());
+});
+
+/* Marked by hand when a fee arrives by e-transfer, which is how most will be
+   paid until Stripe is switched on. */
+adminRouter.patch('/registrations/:id/paid', (req, res) => {
+  const updated = markRegistrationPaid(req.params.id);
+  if (!updated) return res.status(404).json({ error: 'Registration not found.' });
+  res.json({ ok: true, registration: serialiseRegistration(updated) });
+});
+
+/* ==========================================================================
+   Chat
+   ========================================================================== */
+adminRouter.get('/chat', (req, res) => {
+  const threads = listThreads();
+  res.json({
+    threads,
+    unread: threads.reduce((n, t) => n + t.unread, 0),
+  });
+});
+
+adminRouter.get('/chat/:id', (req, res) => {
+  const thread = findThread(req.params.id);
+  if (!thread) return res.status(404).json({ error: 'Conversation not found.' });
+
+  const messages = messagesSince(thread.id, 0).map(serialiseMessage);
+  // Opening a thread in the admin marks the visitor's messages as seen.
+  markRead(thread.id, 'visitor');
+
+  res.json({
+    thread: {
+      id: thread.id,
+      name: thread.visitor_name,
+      email: thread.visitor_email,
+      status: thread.status,
+      createdAt: thread.created_at,
+    },
+    messages,
+  });
+});
+
+adminRouter.post('/chat/:id', (req, res) => {
+  const thread = findThread(req.params.id);
+  if (!thread) return res.status(404).json({ error: 'Conversation not found.' });
+
+  const message = addMessage(thread.id, 'admin', req.body?.body);
+  if (!message) return res.status(400).json({ error: 'Write a reply first.' });
+
+  /* The visitor sees this on their next poll. There is deliberately no email to
+     them: most are anonymous, and promising a mail we cannot send would be
+     worse than the widget they are already using. */
+  res.json({ message: serialiseMessage(message) });
+});
+
+adminRouter.patch('/chat/:id', (req, res) => {
+  const updated = setThreadStatus(req.params.id, String(req.body?.status || ''));
+  if (!updated) return res.status(400).json({ error: 'Unknown status.' });
+  res.json({ ok: true, status: updated.status });
+});
+
+/* ==========================================================================
+   Donations
+   ========================================================================== */
+adminRouter.get('/donations', (req, res) => {
+  const donations = db
+    .prepare('SELECT * FROM donations ORDER BY id DESC LIMIT 200')
+    .all()
+    .map((d) => serialiseDonation(d, { includePayments: d.kind === 'monthly' }));
+
+  /* Money actually received. A one-time gift is fully described by its own row;
+     a monthly gift is described by its charges, because the donation row holds
+     the per-cycle amount, not the lifetime total. Summing both would double
+     count the first month. */
+  const oneTime = db
+    .prepare("SELECT COALESCE(SUM(total_cents), 0) AS n FROM donations WHERE kind = 'one_time' AND status = 'paid'")
+    .get().n;
+  const recurring = db
+    .prepare("SELECT COALESCE(SUM(amount_cents), 0) AS n FROM donation_payments WHERE status = 'paid'")
+    .get().n;
+  const activeMonthly = db
+    .prepare("SELECT COUNT(*) AS n FROM donations WHERE kind = 'monthly' AND status = 'active'")
+    .get().n;
+  const monthlyValue = db
+    .prepare("SELECT COALESCE(SUM(total_cents), 0) AS n FROM donations WHERE kind = 'monthly' AND status = 'active'")
+    .get().n;
+
+  res.json({
+    donations,
+    currency: config.currency,
+    totals: {
+      receivedCents: oneTime + recurring,
+      oneTimeCents: oneTime,
+      recurringCents: recurring,
+      activeMonthly,
+      monthlyValueCents: monthlyValue,
+    },
+  });
+});
+
+/* ==========================================================================
+   Page copy - every heading, paragraph and list item on the public site
+   ========================================================================== */
+adminRouter.get('/content', (req, res) => {
+  const blocks = listContent();
+
+  /* Grouped by page so the editor reads like the site rather than like a table. */
+  const pages = [];
+  const index = new Map();
+  for (const b of blocks) {
+    if (!index.has(b.page)) {
+      const group = { page: b.page, blocks: [], edited: 0, orphaned: 0 };
+      index.set(b.page, group);
+      pages.push(group);
+    }
+    const group = index.get(b.page);
+    group.blocks.push(b);
+    if (b.value !== null && b.value !== '') group.edited += 1;
+    if (b.orphaned) group.orphaned += 1;
+  }
+
+  res.json({
+    pages,
+    totals: {
+      blocks: blocks.length,
+      edited: blocks.filter((b) => b.value !== null && b.value !== '').length,
+      orphaned: blocks.filter((b) => b.orphaned).length,
+    },
+  });
+});
+
+adminRouter.patch('/content/:key', (req, res) => {
+  const value = req.body?.value;
+  if (typeof value !== 'string') {
+    return res.status(400).json({ error: 'Send the replacement text as a string.' });
+  }
+  if (value.length > 20000) {
+    return res.status(400).json({ error: 'That is longer than a page block should be (20,000 characters).' });
+  }
+
+  const result = setContent(req.params.key, value.trim() === '' ? null : value);
+  if (result.error) return res.status(404).json({ error: result.error });
+  res.json(result);
+});
+
+/* Drop the edit and go back to whatever the page's own markup says. */
+adminRouter.post('/content/:key/reset', (req, res) => {
+  res.json(resetContent(req.params.key));
+});
+
+/* Re-read the pages from disk. Needed after `npm run build` or a hand edit,
+   so the editor can be brought in step without restarting the server. */
+adminRouter.post('/content/resync', (req, res) => {
+  res.json(syncAllPages());
 });

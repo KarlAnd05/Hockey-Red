@@ -3,28 +3,41 @@
  *
  *   npm run contrast
  *
- * Reads the live colour tokens out of assets/styles.css so it cannot drift from
+ * Reads the live colour tokens out of the stylesheets so it cannot drift from
  * the design system, then checks every foreground/background pair the site
  * actually renders.
  *
  * Thresholds: 4.5:1 normal text, 3:1 large text (>=24px, or >=19px bold) and
  * non-text UI boundaries (WCAG 1.4.11).
+ *
+ * A pair may also fail before it is measured: any hardcoded colour that no
+ * stylesheet ships is reported as STALE and exits non-zero, because a pass
+ * against a colour the browser never paints is a false pass.
  */
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const css = readFileSync(join(root, 'assets', 'styles.css'), 'utf8');
+
+/* Read the stylesheets in the order the browser links them, so a token
+   redefined in a later sheet audits as the value that actually paints. Only
+   styles.css declares tokens today; the loop is here so that stops being a
+   silent assumption the day a second sheet does. */
+const SHEETS = ['styles.css', 'store.css', 'admin.css'];
+const sources = SHEETS.map((name) => readFileSync(join(root, 'assets', name), 'utf8'));
+const allCss = sources.join('\n');
 
 /* --- Pull the tokens straight from :root --------------------------------- */
 const tokens = {};
-for (const [, name, value] of css.matchAll(/--([a-z0-9-]+):\s*(#[0-9a-fA-F]{3,8})\s*;/g)) {
-  tokens[name] = value;
+for (const css of sources) {
+  for (const [, name, value] of css.matchAll(/--([a-z0-9-]+):\s*(#[0-9a-fA-F]{3,8})\s*;/g)) {
+    tokens[name] = value; // later sheet wins, as in the cascade
+  }
 }
 
 const T = (name) => {
-  if (!tokens[name]) throw new Error(`Token --${name} not found in styles.css`);
+  if (!tokens[name]) throw new Error(`Token --${name} not found in ${SHEETS.join(', ')}`);
   return tokens[name];
 };
 
@@ -83,6 +96,20 @@ const checks = [
   ['input text on soft', T('ink'), T('soft'), NORMAL],
   ['placeholder / helper on soft', T('muted'), T('soft'), NORMAL],
 
+  // Recognitions: the year is display-scale, so it audits as large text.
+  ['recognition year', T('red'), T('surface'), LARGE],
+  ['recognition body', T('ink'), T('surface'), NORMAL],
+  ['recognition note', T('muted-soft'), T('surface'), NORMAL],
+
+  // News: the "view full screen" hint and the lightbox close, both white on the
+  // near-black photo backdrop.
+  ['photo hint / lightbox close', '#ffffff', T('ink-deep'), NORMAL],
+
+  // Notice: a page-level message on the red wash, with its accent bar.
+  ['notice text on red tint', T('ink'), T('red-tint'), NORMAL],
+  ['notice accent bar (1.4.11)', T('red'), T('red-tint'), UI],
+  ['notice info bar (1.4.11)', T('ink-deep'), T('soft'), UI],
+
   // Non-text: the boundary that identifies an interactive control.
   ['control border on white (1.4.11)', T('line-input'), T('surface'), UI],
   ['control border on soft (1.4.11)', T('line-input'), T('soft'), UI],
@@ -90,16 +117,54 @@ const checks = [
 ];
 
 const alphaChecks = [
-  ['hero paragraph', 0.86, '#0b0f12', NORMAL],
-  ['scroll cue', 0.62, '#0b0f12', NORMAL],
+  /* The hero is `background: var(--ink-deep)` with a photo and a gradient
+     stack over it. --ink-deep is the declared base and the overlay's darkest
+     stop, so it is the honest token to audit; the composited photo case is
+     what scripts/sample-region.mjs measures, which a token pair cannot. */
+  ['hero paragraph', 0.86, T('ink-deep'), NORMAL],
+  ['scroll cue', 0.62, T('ink-deep'), NORMAL],
   ['footer body text', 0.7, T('ink-deep'), NORMAL],
   ['footer links', 0.66, T('ink-deep'), NORMAL],
   ['footer legal links', 0.72, T('ink-deep'), NORMAL],
   ['footer about text', 0.6, T('ink-deep'), NORMAL],
   ['admin nav links', 0.68, T('ink-deep'), NORMAL],
   ['admin rail buttons', 0.78, T('steel'), NORMAL],
-  ['admin user block', 0.6, '#0d0f13', NORMAL],
+  /* .admin-user is rgba(255,255,255,0.06) over .admin-rail's --ink-deep. The
+     6% wash only lightens the ground, so auditing against --ink-deep itself is
+     the conservative floor: the rendered ratio is never worse than this. */
+  ['admin user block', 0.6, T('ink-deep'), NORMAL],
 ];
+
+/* --- Drift guard: never audit a colour the site does not ship -------------
+   A pair whose literal appears in no stylesheet is measuring something the
+   browser never paints, so a pass from it is worth nothing. Three pairs in
+   this file were doing exactly that (#0b0f12, #0d0f13) -- close enough to the
+   real background to look right, and reporting on a colour that shipped
+   nowhere. Fail loudly rather than quietly scoring green on a fiction. */
+const tokenValues = new Set(Object.values(tokens).map((v) => v.toLowerCase()));
+const haystack = allCss.toLowerCase();
+
+const ships = (value) =>
+  typeof value !== 'string' ||
+  !value.startsWith('#') ||
+  tokenValues.has(value.toLowerCase()) ||
+  haystack.includes(value.toLowerCase());
+
+const stale = [];
+for (const [label, fg, bg] of checks) {
+  for (const v of [fg, bg]) if (!ships(v)) stale.push([label, v]);
+}
+for (const [label, , bg] of alphaChecks) {
+  if (!ships(bg)) stale.push([label, bg]);
+}
+
+if (stale.length) {
+  console.log('\nSTALE - audited, but no stylesheet ships them:\n');
+  for (const [label, v] of stale) console.log(`  ${v}  ${label}`);
+  console.log('\nPoint each pair at the colour the site renders, or drop the pair.');
+  console.log('Do not soften this guard to make it quiet.\n');
+  process.exit(1);
+}
 
 /* --- Run ------------------------------------------------------------------ */
 const rows = [

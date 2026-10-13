@@ -36,6 +36,20 @@ export const config = {
   freeShippingThresholdCents: Number(process.env.FREE_SHIPPING_THRESHOLD_CENTS || 20000),
   taxRate: Number(process.env.TAX_RATE || 0),
 
+  /* --- Donations -------------------------------------------------------- */
+  // Stripe's published Canadian card rate. Kept here so a pricing change is one
+  // edit rather than a hunt through the donation code.
+  stripeFeePercent: Number(process.env.STRIPE_FEE_PERCENT || 0.029),
+  stripeFeeFixedCents: Number(process.env.STRIPE_FEE_FIXED_CENTS || 30),
+  // Reused for every monthly gift so the Stripe dashboard does not collect one
+  // Product per subscriber. Created on first use and cached in app_meta when
+  // this is left empty.
+  stripeDonationProductId: process.env.STRIPE_DONATION_PRODUCT_ID || '',
+  // Guard rails on the amount field, in cents. The floor matches the smallest
+  // fixed button, so the buttons and the custom field never disagree.
+  donationMinCents: Number(process.env.DONATION_MIN_CENTS || 2000),
+  donationMaxCents: Number(process.env.DONATION_MAX_CENTS || 2000000),
+
   /* --- Email ------------------------------------------------------------ */
   smtp: {
     host: process.env.SMTP_HOST || '',
@@ -51,6 +65,16 @@ export const config = {
   // Where new-order and contact notifications go.
   mailAdmin:
     (process.env.MAIL_ADMIN || process.env.ADMIN_EMAIL || '').trim().toLowerCase(),
+
+  /* --- Chat ------------------------------------------------------------- */
+  // Where a visitor's chat message is announced. Falls back to MAIL_ADMIN so
+  // chat works before a dedicated address is chosen.
+  chatNotifyEmail: (process.env.CHAT_NOTIFY_EMAIL || process.env.MAIL_ADMIN || process.env.ADMIN_EMAIL || '')
+    .trim()
+    .toLowerCase(),
+  // Minutes to wait before emailing about the same thread again, so a visitor
+  // typing several short lines does not fire several notifications.
+  chatNotifyCoalesceMinutes: Number(process.env.CHAT_NOTIFY_COALESCE_MINUTES || 2),
 };
 
 export const stripeEnabled = Boolean(config.stripeSecretKey);

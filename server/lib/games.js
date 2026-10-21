@@ -129,6 +129,14 @@ export function serialiseSheetLine(line) {
     roleLabel: ROLES[line.role] || line.role,
     note: line.note,
     sortOrder: line.sort_order,
+    played: line.played === undefined ? true : Boolean(line.played),
+    goals: line.goals || 0,
+    assists: line.assists || 0,
+    points: (line.goals || 0) + (line.assists || 0),
+    penaltyMinutes: line.penalty_minutes || 0,
+    shotsAgainst: line.shots_against || 0,
+    saves: line.saves || 0,
+    decision: line.decision || '',
     playerSlug: line.player_slug || '',
     membership: line.registration_id
       ? {

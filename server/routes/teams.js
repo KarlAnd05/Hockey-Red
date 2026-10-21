@@ -18,6 +18,7 @@ import {
   renderPlayerPage,
 } from '../lib/teams.js';
 import { applyContent } from '../lib/content.js';
+import { statsForPlayer } from '../lib/stats.js';
 
 export const teamsRouter = Router();
 
@@ -117,7 +118,7 @@ teamsPageRouter.get('/players/:slug', (req, res, next) => {
 
   try {
     res.setHeader('Cache-Control', 'no-store');
-    res.type('html').send(renderPlayerPage(player, team, base));
+    res.type('html').send(renderPlayerPage(player, team, base, statsForPlayer(player.id)));
   } catch (error) {
     console.error('[teams] could not render player %s:', req.params.slug, error.message);
     next();

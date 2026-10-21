@@ -3331,3 +3331,71 @@ label.is-invalid,
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* ==========================================================================
+   Player statistics
+   ========================================================================== */
+.player-stats,
+.player-log {
+  margin-top: var(--s-7);
+}
+
+.player-stats h2,
+.player-log h2 {
+  margin: 0 0 var(--s-4);
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 2px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.stat-figure {
+  display: grid;
+  gap: 2px;
+  padding: 14px 4px;
+}
+
+.stat-value {
+  color: var(--ink-deep);
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.stat-note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.cell-away {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+@media (max-width: 560px) {
+  .stat-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .stat-value {
+    font-size: 21px;
+  }
+}

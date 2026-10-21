@@ -166,6 +166,10 @@ function readPlayerBody(body, existing = {}) {
     photoUrl: str('photoUrl', existing.photo_url, 400),
     photoAlt: str('photoAlt', existing.photo_alt, 240),
     bio: str('bio', existing.bio, 4000),
+    priorGames: Math.max(0, Number(body.priorGames ?? existing.prior_games ?? 0) || 0),
+    priorGoals: Math.max(0, Number(body.priorGoals ?? existing.prior_goals ?? 0) || 0),
+    priorAssists: Math.max(0, Number(body.priorAssists ?? existing.prior_assists ?? 0) || 0),
+    priorNote: str('priorNote', existing.prior_note, 240),
     recentTeam: str('recentTeam', existing.recent_team, 200),
     resides: str('resides', existing.resides, 120),
     hometown: str('hometown', existing.hometown, 120),
@@ -184,8 +188,9 @@ adminTeamsRouter.post('/players', (req, res) => {
     .prepare(
       `INSERT INTO players
          (team_id, slug, name, squad, position, jersey_number, photo_url, photo_alt,
-          bio, recent_team, resides, hometown, active, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          bio, recent_team, resides, hometown, active, sort_order,
+          prior_games, prior_goals, prior_assists, prior_note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       v.teamId,
@@ -201,7 +206,11 @@ adminTeamsRouter.post('/players', (req, res) => {
       v.resides,
       v.hometown,
       v.active,
-      v.sortOrder
+      v.sortOrder,
+      v.priorGames,
+      v.priorGoals,
+      v.priorAssists,
+      v.priorNote
     );
 
   res.status(201).json({ id: Number(info.lastInsertRowid), slug });
@@ -225,7 +234,8 @@ adminTeamsRouter.patch('/players/:id', (req, res) => {
     `UPDATE players
         SET team_id = ?, slug = ?, name = ?, squad = ?, position = ?, jersey_number = ?,
             photo_url = ?, photo_alt = ?, bio = ?, recent_team = ?, resides = ?,
-            hometown = ?, active = ?, sort_order = ?
+            hometown = ?, active = ?, sort_order = ?,
+            prior_games = ?, prior_goals = ?, prior_assists = ?, prior_note = ?
       WHERE id = ?`
   ).run(
     v.teamId,
@@ -242,6 +252,10 @@ adminTeamsRouter.patch('/players/:id', (req, res) => {
     v.hometown,
     v.active,
     v.sortOrder,
+    v.priorGames,
+    v.priorGoals,
+    v.priorAssists,
+    v.priorNote,
     existing.id
   );
 

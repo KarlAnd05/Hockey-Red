@@ -211,9 +211,25 @@ adminGamesRouter.patch('/games/:id/sheet/:lineId', (req, res) => {
         ? null
         : Number(body.jerseyNumber);
 
+  /* Statistics live on this line, not on the player: see lib/stats.js. A
+     count is clamped at zero because a negative goal total is not a thing
+     that happened, it is a typo. */
+  const count = (key, fallback) => {
+    if (body[key] === undefined) return fallback ?? 0;
+    const n = Math.round(Number(body[key]));
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  };
+
+  const DECISIONS = ['', 'W', 'L', 'OTL'];
+  const decision = DECISIONS.includes(String(body.decision || '').toUpperCase())
+    ? String(body.decision || '').toUpperCase()
+    : line.decision;
+
   db.prepare(
     `UPDATE game_sheet_players
-        SET name = ?, jersey_number = ?, position = ?, role = ?, note = ?, sort_order = ?
+        SET name = ?, jersey_number = ?, position = ?, role = ?, note = ?, sort_order = ?,
+            goals = ?, assists = ?, penalty_minutes = ?,
+            shots_against = ?, saves = ?, decision = ?, played = ?
       WHERE id = ?`
   ).run(
     str('name', line.name, 160),
@@ -222,6 +238,13 @@ adminGamesRouter.patch('/games/:id/sheet/:lineId', (req, res) => {
     Object.keys(ROLES).includes(body.role) ? body.role : line.role,
     str('note', line.note, 400),
     Number(body.sortOrder ?? line.sort_order) || 0,
+    count('goals', line.goals),
+    count('assists', line.assists),
+    count('penaltyMinutes', line.penalty_minutes),
+    count('shotsAgainst', line.shots_against),
+    count('saves', line.saves),
+    decision,
+    body.played === undefined ? line.played : body.played ? 1 : 0,
     line.id
   );
 

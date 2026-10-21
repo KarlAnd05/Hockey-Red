@@ -147,6 +147,10 @@ export function serialisePlayer(player, team = null) {
     photoUrl: player.photo_url,
     photoAlt: player.photo_alt,
     bio: player.bio,
+    priorGames: player.prior_games || 0,
+    priorGoals: player.prior_goals || 0,
+    priorAssists: player.prior_assists || 0,
+    priorNote: player.prior_note || '',
     recentTeam: player.recent_team,
     resides: player.resides,
     hometown: player.hometown,
@@ -571,7 +575,119 @@ export function renderTeamPage(team, players, shellHtml) {
   });
 }
 
-export function renderPlayerPage(player, team, shellHtml) {
+/**
+ * The statistics block and game log on a player's profile.
+ *
+ * Shown only when there is a record to show. A player with no finalised games
+ * gets nothing here rather than a row of zeroes, because "0 goals in 0 games"
+ * reads as a judgement on them instead of an absence of data.
+ */
+function statsBlock(stats) {
+  if (!stats || !stats.hasRecord) return '';
+
+  const pct = (v) => (v === null ? '—' : v.toFixed(3).replace(/^0/, ''));
+  const avg = (v) => (v === null ? '—' : v.toFixed(2));
+
+  /* A goaltender's season is described by different numbers from a skater's,
+     so the block changes shape rather than showing one of them blank columns. */
+  const figures = stats.isGoaltender
+    ? [
+        ['Games', stats.games],
+        ['Record', `${stats.wins}–${stats.losses}${stats.otLosses ? `–${stats.otLosses}` : ''}`],
+        ['Saves', stats.saves],
+        ['Save %', pct(stats.savePercentage)],
+        ['GAA', avg(stats.goalsAgainstAverage)],
+        ['Shutouts', stats.shutouts],
+      ]
+    : [
+        ['Games', stats.games],
+        ['Goals', stats.goals],
+        ['Assists', stats.assists],
+        ['Points', stats.points],
+        ['Penalty minutes', stats.penaltyMinutes],
+      ];
+
+  return `
+          <div class="player-stats">
+            <h2>Statistics</h2>
+            <div class="stat-row">
+              ${figures
+                .map(
+                  ([label, value]) => `
+              <div class="stat-figure">
+                <span class="stat-value">${escapeHtml(String(value))}</span>
+                <span class="stat-label">${escapeHtml(label)}</span>
+              </div>`
+                )
+                .join('')}
+            </div>
+            ${
+              stats.priorGames
+                ? `<p class="stat-note">Includes ${escapeHtml(
+                    String(stats.priorGames)
+                  )} game${stats.priorGames === 1 ? '' : 's'} recorded before this site.${
+                    stats.priorNote ? ` ${escapeHtml(stats.priorNote)}` : ''
+                  }</p>`
+                : ''
+            }
+          </div>`;
+}
+
+function gameLog(stats) {
+  if (!stats || !stats.log.length) return '';
+
+  const cells = (g) =>
+    stats.isGoaltender
+      ? `<td data-label="Saves">${escapeHtml(String(g.saves))}/${escapeHtml(String(g.shotsAgainst))}</td>
+         <td data-label="Result">${escapeHtml(g.decision || '—')}</td>`
+      : `<td data-label="Goals">${escapeHtml(String(g.goals))}</td>
+         <td data-label="Assists">${escapeHtml(String(g.assists))}</td>
+         <td data-label="Points">${escapeHtml(String(g.points))}</td>`;
+
+  return `
+          <div class="player-log">
+            <h2>Game log</h2>
+            <div class="table-scroll">
+              <table class="roster-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Opponent</th>
+                    <th scope="col">Score</th>
+                    ${
+                      stats.isGoaltender
+                        ? '<th scope="col">Saves</th><th scope="col">Result</th>'
+                        : '<th scope="col">G</th><th scope="col">A</th><th scope="col">P</th>'
+                    }
+                  </tr>
+                </thead>
+                <tbody>
+                  ${stats.log
+                    .map(
+                      (g) => `
+                  <tr>
+                    <td data-label="Date">${escapeHtml(
+                      String(g.playedAt || '').slice(0, 10) || 'Date not set'
+                    )}</td>
+                    <td data-label="Opponent" class="roster-name">${escapeHtml(g.opponent)}${
+                        g.homeAway === 'away' ? ' <span class="cell-away">(away)</span>' : ''
+                      }</td>
+                    <td data-label="Score">${
+                      g.scoreFor === null || g.scoreAgainst === null
+                        ? '—'
+                        : `${escapeHtml(String(g.scoreFor))}–${escapeHtml(String(g.scoreAgainst))}`
+                    }</td>
+                    ${cells(g)}
+                  </tr>`
+                    )
+                    .join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>`;
+}
+
+export function renderPlayerPage(player, team, shellHtml, stats = null) {
   const title = `${player.name} · Lebanon Hockey`;
   const facts = [
     ['Position', POSITION_LABEL[player.position] || player.position],
@@ -622,6 +738,8 @@ export function renderPlayerPage(player, team, shellHtml) {
             </dl>`
               : ''}
             ${player.bio ? `<div class="player-bio">${textToHtml(player.bio)}</div>` : ''}
+            ${statsBlock(stats)}
+            ${gameLog(stats)}
           </div>
         </article>
 

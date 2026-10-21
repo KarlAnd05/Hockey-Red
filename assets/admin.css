@@ -1388,3 +1388,13 @@ table.data .tier.partner  { background: var(--red-tint); color: var(--red-dark);
     grid-column: 2;
   }
 }
+
+/* A section heading inside a modal form. */
+.modal-subhead {
+  margin: var(--s-4) 0 0;
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}

@@ -2254,6 +2254,24 @@
           <label>Biography <textarea name="bio" rows="5" maxlength="4000">${escapeHtml(
             p.bio
           )}</textarea></label>
+          <p class="cell-muted">The short description shown on the player&rsquo;s own page.</p>
+
+          <h3 class="modal-subhead">Record before this site</h3>
+          <p class="cell-muted">Only for games the federation played before game sheets were kept here. Everything entered on a game sheet is counted automatically &mdash; do not repeat it.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+            <label>Games <input name="priorGames" type="number" min="0" value="${
+              p.priorGames || 0
+            }"></label>
+            <label>Goals <input name="priorGoals" type="number" min="0" value="${
+              p.priorGoals || 0
+            }"></label>
+            <label>Assists <input name="priorAssists" type="number" min="0" value="${
+              p.priorAssists || 0
+            }"></label>
+          </div>
+          <label>Note about that record <input name="priorNote" value="${escapeHtml(
+            p.priorNote || ''
+          )}" maxlength="240" placeholder="e.g. 2019-2024 national team"></label>
 
           <label>Order <input name="sortOrder" type="number" value="${p.sortOrder}"></label>
 
@@ -2282,6 +2300,10 @@
             photoUrl: v.photoUrl,
             photoAlt: v.photoAlt,
             bio: v.bio,
+            priorGames: Number(v.priorGames) || 0,
+            priorGoals: Number(v.priorGoals) || 0,
+            priorAssists: Number(v.priorAssists) || 0,
+            priorNote: v.priorNote,
             recentTeam: v.recentTeam,
             resides: v.resides,
             hometown: v.hometown,
@@ -2769,6 +2791,41 @@
                 .join('')}
             </select>
           </label>
+          <label class="checkbox-row"><input type="checkbox" name="played" ${
+            line.played ? 'checked' : ''
+          }> Dressed and played</label>
+          <p class="cell-muted">Untick for a scratch. They stay on the sheet but the game does not count towards their record.</p>
+
+          <h3 class="modal-subhead">Statistics</h3>
+          <p class="cell-muted">These feed the player&rsquo;s profile page automatically &mdash; nothing is typed twice.</p>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+            <label>Goals <input name="goals" type="number" min="0" value="${line.goals}"></label>
+            <label>Assists <input name="assists" type="number" min="0" value="${line.assists}"></label>
+            <label>Penalty mins <input name="penaltyMinutes" type="number" min="0" value="${
+              line.penaltyMinutes
+            }"></label>
+          </div>
+
+          <p class="cell-muted">Goaltenders only:</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+            <label>Shots against <input name="shotsAgainst" type="number" min="0" value="${
+              line.shotsAgainst
+            }"></label>
+            <label>Saves <input name="saves" type="number" min="0" value="${line.saves}"></label>
+            <label>Result
+              <select name="decision">
+                ${['', 'W', 'L', 'OTL']
+                  .map(
+                    (d) =>
+                      `<option value="${d}"${line.decision === d ? ' selected' : ''}>${
+                        d || '—'
+                      }</option>`
+                  )
+                  .join('')}
+            </select></label>
+          </div>
+
           <label>Note <input name="note" value="${escapeHtml(line.note)}" maxlength="400"></label>
           <label>Order <input name="sortOrder" type="number" value="${line.sortOrder}"></label>
         </form>`,
@@ -2789,6 +2846,13 @@
               role: v.role,
               note: v.note,
               sortOrder: Number(v.sortOrder) || 0,
+              played: Boolean(v.played),
+              goals: Number(v.goals) || 0,
+              assists: Number(v.assists) || 0,
+              penaltyMinutes: Number(v.penaltyMinutes) || 0,
+              shotsAgainst: Number(v.shotsAgainst) || 0,
+              saves: Number(v.saves) || 0,
+              decision: v.decision || '',
             },
           });
 

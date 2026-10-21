@@ -613,6 +613,33 @@ addColumnIfMissing('orders', 'payment_method', "TEXT NOT NULL DEFAULT 'card'");
 addColumnIfMissing('teams', 'staff', "TEXT NOT NULL DEFAULT ''");
 addColumnIfMissing('teams', 'honours', "TEXT NOT NULL DEFAULT ''");
 
+/* Player statistics.
+
+   These live on the GAME SHEET LINE, not on the player, so a number is
+   recorded once in the place it happened and every total is derived from it.
+   Putting season totals on the player instead would mean two sources that can
+   disagree, and nothing to point at when they do.
+
+   Goaltenders need different columns from skaters, so both sets are here and
+   the profile shows whichever fits the player's position. A skater with saves
+   recorded is not an error, just unusual - the schema does not police it.
+
+   prior_* on players is for history from BEFORE this system existed: the
+   federation has results going back years that were never entered as sheets,
+   and losing them to a clean data model would be a poor trade. */
+addColumnIfMissing('game_sheet_players', 'goals', 'INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('game_sheet_players', 'assists', 'INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('game_sheet_players', 'penalty_minutes', 'INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('game_sheet_players', 'shots_against', 'INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('game_sheet_players', 'saves', 'INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('game_sheet_players', 'decision', "TEXT NOT NULL DEFAULT ''");
+addColumnIfMissing('game_sheet_players', 'played', 'INTEGER NOT NULL DEFAULT 1');
+
+addColumnIfMissing('players', 'prior_games', 'INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('players', 'prior_goals', 'INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('players', 'prior_assists', 'INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('players', 'prior_note', "TEXT NOT NULL DEFAULT ''");
+
 /* ==========================================================================
    Seed - the real catalogue that was hardcoded in shop.html
    ========================================================================== */

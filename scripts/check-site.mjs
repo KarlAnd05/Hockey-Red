@@ -15,11 +15,11 @@ const base = (process.argv[2] || 'http://127.0.0.1:5174').replace(/\/$/, '');
 
 const PAGES = [
   '/', 'about.html', 'account.html', 'cart.html', 'checkout.html', 'cookies.html',
-  'donation.html', 'events.html', 'forgot-password.html', 'index.html', 'login.html',
-  'membership.html', 'mens-program.html', 'news.html', 'order-confirmation.html',
+  'contact.html', 'donation.html', 'events.html', 'forgot-password.html', 'index.html', 'login.html',
+  'membership.html', 'news.html', 'order-confirmation.html',
   'privacy.html', 'product.html', 'refund-policy.html', 'register.html',
-  'reset-password.html', 'shop.html', 'sponsors.html', 'womens-program.html',
-  'youth-camp.html',
+  'reset-password.html', 'shop.html', 'sponsors.html', 'teams.html',
+  'teams',
 ];
 
 const ADMIN = [
@@ -89,6 +89,35 @@ try {
   }
 } catch {
   /* the server may not expose news yet; the rest of the check still stands */
+}
+
+/* Teams and players have a page each too, discovered the same way. The player
+   pages are the ones worth crawling: there are dozens of them, they are
+   server-rendered from a shell meant for the site root, and a bad relative path
+   in that rewrite would break every one of them at once. */
+try {
+  const res = await fetch(new URL('api/teams', base + '/').href);
+  if (res.ok) {
+    const { teams = [] } = await res.json();
+    let players = 0;
+
+    for (const team of teams) {
+      PAGES.push(`teams/${team.slug}`);
+
+      const detail = await fetch(new URL(`api/teams/${team.slug}`, base + '/').href);
+      if (!detail.ok) continue;
+      const body = await detail.json();
+      for (const player of body.players || []) {
+        PAGES.push(`players/${player.slug}`);
+        players += 1;
+      }
+    }
+
+    if (teams.length) console.log(`  (+${teams.length} teams, ${players} player profiles discovered)
+`);
+  }
+} catch {
+  /* the server may not expose teams yet; the rest of the check still stands */
 }
 
 for (const page of PAGES) {

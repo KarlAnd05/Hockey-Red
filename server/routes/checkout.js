@@ -4,6 +4,8 @@ import { config, stripeEnabled } from '../config.js';
 import { getOrCreateCart, getCartDetail } from '../lib/cart.js';
 import { createPendingOrder, markOrderPaid, serialiseOrder } from '../lib/orders.js';
 import { getStripe } from '../lib/stripe.js';
+import { COUNTRIES } from '../lib/shipping.js';
+import { sendEtransferInstructions } from '../lib/notifications.js';
 
 export const checkoutRouter = Router();
 
@@ -32,6 +34,55 @@ checkoutRouter.post('/checkout', async (req, res) => {
 
   if (!String(shipping.line1 || '').trim() || !String(shipping.city || '').trim()) {
     return res.status(400).json({ error: 'A shipping address line and city are required.' });
+  }
+
+  /* Interac e-Transfer needs no payment provider at all: the buyer sends the
+     money themselves and the federation marks the order paid when it arrives.
+     So this path is checked BEFORE the Stripe gate below - it is the one way
+     to take an order while card payments are still being set up. */
+  const method = req.body?.method === 'etransfer' ? 'etransfer' : 'card';
+
+  if (method === 'etransfer') {
+    if (!config.etransferEmail) {
+      return res.status(503).json({
+        error: 'e-Transfer is not set up yet. Please choose another way to pay.',
+        code: 'etransfer_disabled',
+      });
+    }
+
+    const created = createPendingOrder({
+      cartId: cart?.id,
+      userId: req.user?.id ?? null,
+      email,
+      shipping,
+      discountCode: String(req.body?.discountCode || ''),
+      paymentMethod: 'etransfer',
+    });
+
+    if (created.error) return res.status(400).json({ error: created.error });
+
+    /* The order stays pending until someone confirms the transfer landed. The
+       stock is not decremented and no invoice is cut yet, because none of that
+       is true until the money arrives - markOrderPaid does all of it, once,
+       whenever the federation marks it. */
+    try {
+      await sendEtransferInstructions(created.orderId);
+    } catch (error) {
+      console.error('[etransfer] could not email instructions:', error.message);
+    }
+
+    return res.json({
+      method: 'etransfer',
+      orderId: created.orderId,
+      orderNumber: created.orderNumber,
+      instructions: {
+        email: config.etransferEmail,
+        name: config.etransferName,
+        amountCents: created.detail.totalCents,
+        currency: created.detail.currency,
+        reference: created.orderNumber,
+      },
+    });
   }
 
   /* No payment provider, no order. This used to return after createPendingOrder,
@@ -157,8 +208,14 @@ checkoutRouter.get('/checkout/status/:orderId', async (req, res) => {
       const stripe = getStripe();
       const session = await stripe.checkout.sessions.retrieve(order.stripe_session_id);
       if (session.payment_status === 'paid') {
+        /* Pass the cart id the same way the webhook does, from the session's
+           own metadata. Without it a guest's cart is never emptied here -
+           markOrderPaid can only fall back to "the signed-in user's newest
+           cart", and a guest has neither - so they would pay, come back, and
+           still find the order sitting in their basket. */
         await markOrderPaid(order.id, {
           paymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+          cartId: Number(session.metadata?.cart_id) || null,
         });
       }
     } catch (error) {
@@ -196,5 +253,16 @@ checkoutRouter.post('/checkout/dev-complete/:orderId', async (req, res) => {
    -------------------------------------------------------------------------- */
 checkoutRouter.get('/checkout/summary', (req, res) => {
   const cart = getOrCreateCart(req);
-  res.json(getCartDetail(cart?.id, String(req.query.discount || '')));
+  /* The country drives the shipping quote, so the figure on screen is the one
+     that will actually be charged. Without it the page would show origin-zone
+     shipping and then charge the real zone at the last moment. */
+  res.json(
+    getCartDetail(cart?.id, String(req.query.discount || ''), String(req.query.country || ''))
+  );
+});
+
+/* The country list the checkout select is built from, served so the page and
+   the zone lookup can never disagree about a code. */
+checkoutRouter.get('/checkout/countries', (req, res) => {
+  res.json({ countries: COUNTRIES, origin: config.shippingOriginCountry });
 });

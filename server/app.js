@@ -16,8 +16,13 @@ import { newsRouter, newsPageRouter } from './routes/news.js';
 import { chatRouter } from './routes/chat.js';
 import { membershipRouter } from './routes/membership.js';
 import { rosterRouter } from './routes/roster.js';
+import { teamsRouter, teamsPageRouter } from './routes/teams.js';
 import { ordersRouter } from './routes/orders.js';
 import { adminRouter } from './routes/admin.js';
+import { adminTeamsRouter } from './routes/admin-teams.js';
+import { adminGamesRouter } from './routes/admin-games.js';
+import { sponsorsRouter, adminSponsorsRouter } from './routes/sponsors.js';
+import { programsRouter, adminProgramsRouter } from './routes/programs.js';
 import { webhookRouter } from './routes/webhook.js';
 
 // Dev-only allowance so impeccable live mode can load. Never set in production.
@@ -82,8 +87,17 @@ export function createApp() {
   app.use('/api', chatRouter);
   app.use('/api', membershipRouter);
   app.use('/api', rosterRouter);
+  app.use('/api', teamsRouter);
+  app.use('/api', sponsorsRouter);
+  app.use('/api', programsRouter);
   app.use('/api', ordersRouter);
+  /* Teams live in their own router purely so routes/admin.js stays readable;
+     both sit behind the same requireAdmin gate inside adminRouter. */
   app.use('/api/admin', adminRouter);
+  app.use('/api/admin', requireAdmin, adminTeamsRouter);
+  app.use('/api/admin', requireAdmin, adminGamesRouter);
+  app.use('/api/admin', requireAdmin, adminSponsorsRouter);
+  app.use('/api/admin', requireAdmin, adminProgramsRouter);
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'Unknown endpoint.' }));
 
@@ -162,6 +176,11 @@ export function createApp() {
      Sits outside the root-*.html allow-list above, so it needs its own handler.
      Server-rendered because link-preview crawlers do not run JavaScript. */
   app.use(newsPageRouter);
+
+  /* --- One page per team, and one per player -------------------------------
+     Same reasoning as the news post pages: a shared link has to preview, and a
+     profile has to be readable without JavaScript. */
+  app.use(teamsPageRouter);
 
   app.get('/favicon.ico', (req, res) => {
     res.redirect(302, '/assets/LIHF-01_edited.png');

@@ -159,7 +159,6 @@ The board is described as **nine voting members and seven managers**. The live l
 | Nancy Constantin | Director, Accounting | Canada |
 | Maurizio Sottile | Director, Technical & Ice Rink Project | Canada |
 | Lara Karam | Director, Public Relations | Lebanon |
-| Wissam Salaman | Director, Digital Marketing | Canada/Lebanon |
 | Mtre. Bachir Kazan | Director, Legal Affairs | Lebanon |
 | **June Baraket-Redsell** | **Director, Communication & Coordination** | — (**NEW**) |
 
@@ -183,7 +182,7 @@ June Baraket-Redsell and Allison Mahfouz.
 
 ### Disciplinary & Dispute Committee (DDC) (**NEW**)
 
-Rick Daigle (Chairman) · Wissam Salman (Member) · Edouard Tabet (Member) ·
+Rick Daigle (Chairman) · Edouard Tabet (Member) ·
 Mtre. Bachir Kazan (Attorney).
 
 > The DDC is the governing body within the LIHF delegated task to deal with Ice Hockey
@@ -394,3 +393,10 @@ Game Recaps. Hockey-Red's news page has no categories — adopt only if they wil
 - Women's team head coach is given three ways: "Adrienne Saba - Mohamad Teliani - Jocelyn
   Trépanier" as head coaches, while Saba and Teliani are also listed as assistant coaches
   and Trépanier as general manager.
+
+> **Deliberate difference from the live site.** One board member listed on
+> lebanonhockey.com &mdash; Director of Digital Marketing, shown there as both
+> "Wissam Salaman" and "Wissam Salman" &mdash; has been removed from this site at
+> the federation's request, from the board list, the sponsors page and the
+> Disciplinary Committee. This document records the live site's content, so the
+> omission is noted here rather than left to look like a transcription error.

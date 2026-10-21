@@ -120,6 +120,7 @@ CREATE TABLE IF NOT EXISTS orders (
   total_cents           INTEGER NOT NULL DEFAULT 0,
   currency              TEXT NOT NULL DEFAULT 'cad',
   discount_code         TEXT NOT NULL DEFAULT '',
+  payment_method        TEXT NOT NULL DEFAULT 'card',
   stripe_session_id     TEXT,
   stripe_payment_intent TEXT,
   ship_name             TEXT NOT NULL DEFAULT '',
@@ -228,6 +229,8 @@ CREATE TABLE IF NOT EXISTS donations (
   stripe_customer_id     TEXT,
   stripe_subscription_id TEXT,
   manage_token_hash      TEXT,
+  display_publicly       INTEGER NOT NULL DEFAULT 0,
+  public_name            TEXT NOT NULL DEFAULT '',
   created_at             TEXT NOT NULL DEFAULT (datetime('now')),
   paid_at                TEXT,
   canceled_at            TEXT
@@ -383,7 +386,232 @@ CREATE TABLE IF NOT EXISTS roster_players (
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_roster_lookup ON roster_players(program, team, position, sort_order);
+
+/* Shipping zones.
+   Shipping used to be one flat fee for everyone. It is now worked out from where
+   the parcel is going: a zone carries a base fee, an optional per-item fee, an
+   optional free-over threshold, and a delivery estimate, and each zone covers
+   many countries.
+
+   The country list is the lookup key, so a country nobody has mapped yet must
+   land on the default zone rather than falling through to zero - a silent free
+   shipment to the other side of the world is the failure mode worth designing
+   against. See server/lib/shipping.js. */
+CREATE TABLE IF NOT EXISTS shipping_zones (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  name              TEXT NOT NULL,
+  flat_cents        INTEGER NOT NULL DEFAULT 0,
+  per_item_cents    INTEGER NOT NULL DEFAULT 0,
+  free_over_cents   INTEGER NOT NULL DEFAULT 0,
+  delivery_min_days INTEGER NOT NULL DEFAULT 14,
+  delivery_max_days INTEGER NOT NULL DEFAULT 21,
+  is_default        INTEGER NOT NULL DEFAULT 0,
+  active            INTEGER NOT NULL DEFAULT 1,
+  sort_order        INTEGER NOT NULL DEFAULT 0,
+  created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS shipping_zone_countries (
+  zone_id      INTEGER NOT NULL REFERENCES shipping_zones(id) ON DELETE CASCADE,
+  country_code TEXT NOT NULL,
+  PRIMARY KEY (zone_id, country_code)
+);
+CREATE INDEX IF NOT EXISTS idx_zone_countries_code ON shipping_zone_countries(country_code);
+
+/* Teams and players.
+
+   roster_players already holds the women's squads, but it keys everything to a
+   program string and has nowhere to put a photo or a biography. Our Teams needs
+   a real team record, and a player people can click through to.
+
+   The four teams are the federation's four programmes. The national-team and
+   next-generation split inside the women's programme is kept as a squad on the
+   PLAYER, not as two more teams, because it is a grouping within one programme
+   and the site is specified as having four teams.
+
+   active is how a name comes off the public site. Several players are minors
+   and a parent can ask for a name to be removed; hiding has to be one toggle
+   that works everywhere, which is why the public queries all filter on it
+   rather than each page deciding for itself. */
+CREATE TABLE IF NOT EXISTS teams (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug        TEXT NOT NULL UNIQUE,
+  name        TEXT NOT NULL,
+  tagline     TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  photo_url   TEXT NOT NULL DEFAULT '',
+  photo_alt   TEXT NOT NULL DEFAULT '',
+  staff       TEXT NOT NULL DEFAULT '',
+  honours     TEXT NOT NULL DEFAULT '',
+  program     TEXT NOT NULL DEFAULT '',
+  active      INTEGER NOT NULL DEFAULT 1,
+  sort_order  INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS players (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  team_id       INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  slug          TEXT NOT NULL UNIQUE,
+  name          TEXT NOT NULL,
+  squad         TEXT NOT NULL DEFAULT '',
+  position      TEXT NOT NULL DEFAULT 'forward'
+                CHECK (position IN ('forward', 'defence', 'goaltender', 'staff')),
+  jersey_number INTEGER,
+  photo_url     TEXT NOT NULL DEFAULT '',
+  photo_alt     TEXT NOT NULL DEFAULT '',
+  bio           TEXT NOT NULL DEFAULT '',
+  recent_team   TEXT NOT NULL DEFAULT '',
+  resides       TEXT NOT NULL DEFAULT '',
+  hometown      TEXT NOT NULL DEFAULT '',
+  active        INTEGER NOT NULL DEFAULT 1,
+  sort_order    INTEGER NOT NULL DEFAULT 0,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_players_team ON players(team_id, squad, position, sort_order);
+
+/* Game sheets.
+
+   The federation's own field list is still to come, so this is the spine: a
+   game, and the people on it. The structure is deliberately additive - new
+   columns can be added to game_sheet_players later without reshaping anything,
+   which is the point of keeping one row per person rather than a blob per game.
+
+   A sheet line points at BOTH a player and a registration, and both are
+   nullable:
+     - player_id is the roster entry, which is what the public site shows.
+     - registration_id is the membership record, which carries date of birth,
+       citizenship and the rest of the paperwork a game sheet actually needs.
+   Most lines will have both. A guest who has registered but is not on a roster
+   has only the second; a roster player who has not filled the form in yet has
+   only the first. Requiring either one would make a real case unenterable.
+
+   ON DELETE SET NULL rather than CASCADE: deleting a player should not silently
+   erase the record that they played in a game. */
+CREATE TABLE IF NOT EXISTS games (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  team_id     INTEGER REFERENCES teams(id) ON DELETE SET NULL,
+  opponent    TEXT NOT NULL DEFAULT '',
+  played_at   TEXT NOT NULL DEFAULT '',
+  venue       TEXT NOT NULL DEFAULT '',
+  competition TEXT NOT NULL DEFAULT '',
+  home_away   TEXT NOT NULL DEFAULT 'home' CHECK (home_away IN ('home', 'away', 'neutral')),
+  score_for   INTEGER,
+  score_against INTEGER,
+  status      TEXT NOT NULL DEFAULT 'draft'
+                CHECK (status IN ('draft', 'final', 'cancelled')),
+  notes       TEXT NOT NULL DEFAULT '',
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_games_date ON games(played_at DESC, id DESC);
+
+CREATE TABLE IF NOT EXISTS game_sheet_players (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  game_id         INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  player_id       INTEGER REFERENCES players(id) ON DELETE SET NULL,
+  registration_id INTEGER REFERENCES registrations(id) ON DELETE SET NULL,
+  name            TEXT NOT NULL DEFAULT '',
+  jersey_number   INTEGER,
+  position        TEXT NOT NULL DEFAULT '',
+  role            TEXT NOT NULL DEFAULT 'player'
+                    CHECK (role IN ('player', 'captain', 'alternate', 'starting_goaltender', 'staff')),
+  note            TEXT NOT NULL DEFAULT '',
+  sort_order      INTEGER NOT NULL DEFAULT 0,
+  UNIQUE (game_id, player_id)
+);
+CREATE INDEX IF NOT EXISTS idx_sheet_game ON game_sheet_players(game_id, sort_order);
+
+/* ==========================================================================
+   Sponsors
+   --------------------------------------------------------------------------
+   Four partner cards were hardcoded in sponsors.html, which meant a new
+   sponsor was a code change. tier_rank is what makes the page sort itself:
+   the federation's own order is Platinum, Gold, Silver, Bronze, and a sponsor
+   should move up by changing their tier, not by being re-sorted by hand.
+   ========================================================================== */
+CREATE TABLE IF NOT EXISTS sponsors (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  name        TEXT NOT NULL,
+  tier        TEXT NOT NULL DEFAULT 'bronze'
+                CHECK (tier IN ('platinum', 'gold', 'silver', 'bronze', 'partner')),
+  blurb       TEXT NOT NULL DEFAULT '',
+  website_url TEXT NOT NULL DEFAULT '',
+  logo_url    TEXT NOT NULL DEFAULT '',
+  logo_alt    TEXT NOT NULL DEFAULT '',
+  active      INTEGER NOT NULL DEFAULT 1,
+  sort_order  INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_sponsors_tier ON sponsors(active, tier, sort_order);
+
+/* Programs and schedule.
+
+   The federation has not supplied its content model for this yet, so the table
+   is deliberately small: enough to publish a camp, a session or a tournament
+   with a date and a place, and nothing invented beyond that. Extra columns can
+   be added later through the migration step without reshaping anything.
+
+   starts_at and ends_at are plain ISO date strings, not timestamps. A camp runs
+   on a day, not at an instant, and storing an instant would drag timezone
+   handling into a page that does not need it. */
+CREATE TABLE IF NOT EXISTS programs (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  team_id     INTEGER REFERENCES teams(id) ON DELETE SET NULL,
+  title       TEXT NOT NULL,
+  kind        TEXT NOT NULL DEFAULT 'program',
+  starts_at   TEXT NOT NULL DEFAULT '',
+  ends_at     TEXT NOT NULL DEFAULT '',
+  location    TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  link_url    TEXT NOT NULL DEFAULT '',
+  link_label  TEXT NOT NULL DEFAULT '',
+  active      INTEGER NOT NULL DEFAULT 1,
+  sort_order  INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_programs_date ON programs(active, starts_at);
 `);
+
+/* ==========================================================================
+   Column migrations
+   --------------------------------------------------------------------------
+   Everything above is CREATE TABLE IF NOT EXISTS, which brings a brand new
+   database fully up to date but does nothing to a database that already
+   exists. Adding a column to a live table therefore needs an explicit step.
+
+   This is not a migration framework and should not grow into one; it is the
+   narrow case of "add a nullable or defaulted column", which SQLite does
+   cheaply and which cannot lose data. Anything beyond that - renaming,
+   dropping, changing a constraint - needs a real plan, not another line here.
+
+   Table and column names are interpolated because SQLite cannot bind
+   identifiers. Every call below passes a hardcoded literal; none of this is
+   ever reachable from a request.
+   ========================================================================== */
+function addColumnIfMissing(table, column, definition) {
+  const existing = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (existing.some((c) => c.name === column)) return false;
+
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  return true;
+}
+
+/* The donations leaderboard. Default 0 so every gift already in the database
+   stays private: consent has to be given, never assumed. */
+addColumnIfMissing('donations', 'display_publicly', "INTEGER NOT NULL DEFAULT 0");
+addColumnIfMissing('donations', 'public_name', "TEXT NOT NULL DEFAULT ''");
+
+/* Interac e-Transfer. Every order that already exists was paid by card, which
+   is exactly what the default says. */
+addColumnIfMissing('orders', 'payment_method', "TEXT NOT NULL DEFAULT 'card'");
+
+/* The programme pages were merged into Our Teams, so a team row now has to
+   carry what those pages carried: who coaches it, and what it has won. Both
+   are one entry per line ("Name - Role", "Year - Result") rather than two more
+   tables, because they are short lists displayed verbatim and nothing queries
+   inside them. */
+addColumnIfMissing('teams', 'staff', "TEXT NOT NULL DEFAULT ''");
+addColumnIfMissing('teams', 'honours', "TEXT NOT NULL DEFAULT ''");
 
 /* ==========================================================================
    Seed - the real catalogue that was hardcoded in shop.html

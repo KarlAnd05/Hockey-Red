@@ -11,14 +11,12 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const NAV = [
   ['index.html', 'Home'],
   ['about.html', 'About'],
+  ['teams.html', 'Our Teams'],
   ['news.html', 'News'],
-  ['mens-program.html', "Men's Program"],
-  ['womens-program.html', "Women's Program"],
   ['membership.html', 'Membership'],
-  ['youth-camp.html', 'Youth Camp'],
   ['events.html', 'Events'],
   ['sponsors.html', 'Sponsors'],
-  ['shop.html', 'Shop'],
+  ['shop.html', 'Store'],
 ];
 
 function shell({ file, title, description, active, body, scripts = [], bodyClass = '' }) {
@@ -99,9 +97,7 @@ ${body}
         <div>
           <h3>Programs</h3>
           <ul class="footer-links">
-            <li><a href="mens-program.html">Men's Program</a></li>
-            <li><a href="womens-program.html">Women's Program</a></li>
-            <li><a href="youth-camp.html">Youth Camp</a></li>
+            <li><a href="teams.html">Our Teams</a></li>
             <li><a href="membership.html">Membership</a></li>
           </ul>
         </div>
@@ -112,10 +108,11 @@ ${body}
             <li><a href="news.html">News</a></li>
             <li><a href="events.html">Events</a></li>
             <li><a href="sponsors.html">Sponsors</a></li>
+            <li><a href="contact.html">Contact</a></li>
           </ul>
         </div>
         <div>
-          <h3>Shop</h3>
+          <h3>Store</h3>
           <ul class="footer-links">
             <li><a href="shop.html">All products</a></li>
             <li><a href="cart.html">Cart</a></li>
@@ -151,7 +148,7 @@ const pages = [];
    ========================================================================== */
 pages.push({
   file: 'shop.html',
-  title: 'Shop · Lebanon Hockey',
+  title: 'Store · Lebanon Hockey',
   description:
     'Official Lebanon Hockey merchandise: jerseys, apparel, headwear, and collectibles supporting the federation.',
   active: 'shop.html',
@@ -164,7 +161,7 @@ pages.push({
         <div class="hero-content">
           <div class="hero-badge">
             <span class="dot" aria-hidden="true"></span>
-            <p class="eyebrow">Team Shop</p>
+            <p class="eyebrow">Team Store</p>
           </div>
           <h1>Wear The <span class="accent">Cedars</span></h1>
           <p>Official Lebanon Hockey merchandise. Every purchase supports the federation.</p>
@@ -288,7 +285,7 @@ pages.push({
         <div class="shell">
           <nav class="breadcrumb">
             <a href="index.html">Home</a> /
-            <a href="shop.html">Shop</a> /
+            <a href="shop.html">Store</a> /
             <span aria-current="page">Cart</span>
           </nav>
 
@@ -316,7 +313,7 @@ pages.push({
   body: `      <section class="page-section" style="padding-top:clamp(32px,4vw,56px)" data-page="checkout">
         <div class="shell">
           <nav class="breadcrumb">
-            <a href="shop.html">Shop</a> /
+            <a href="shop.html">Store</a> /
             <a href="cart.html">Cart</a> /
             <span aria-current="page">Checkout</span>
           </nav>
@@ -365,16 +362,39 @@ pages.push({
                 </label>
                 <label>
                   Country
-                  <input type="text" name="country" autocomplete="country-name" value="Canada">
+                  <!-- Filled from /api/checkout/countries, so the codes here and
+                       the shipping zone lookup come from one list. Changing it
+                       re-quotes the shipping before payment. -->
+                  <select name="country" autocomplete="country" required data-country-select>
+                    <option value="">Choose your country</option>
+                  </select>
                 </label>
               </div>
 
-              <button type="submit" class="button primary block">Pay securely</button>
+              <fieldset class="pay-methods" data-pay-methods hidden>
+                <legend>How would you like to pay?</legend>
+                <label class="pay-method">
+                  <input type="radio" name="method" value="card" checked>
+                  <span>
+                    <strong>Card</strong>
+                    <small>Paid now on Stripe&rsquo;s secure page.</small>
+                  </span>
+                </label>
+                <label class="pay-method">
+                  <input type="radio" name="method" value="etransfer">
+                  <span>
+                    <strong>Interac e-Transfer</strong>
+                    <small>We email you where to send it. Your order ships once the transfer arrives.</small>
+                  </span>
+                </label>
+              </fieldset>
+
+              <button type="submit" class="button primary block" data-checkout-submit>Pay securely</button>
               <p class="form-status" data-checkout-status role="status"></p>
               <p data-secure-note style="margin:0;font-size:13px;color:var(--muted);line-height:1.6">
                 You are sent to Stripe to pay; card details never reach our servers.
                 By ordering you accept our <a href="refund-policy.html" style="color:var(--red);font-weight:700">refund policy</a>
-                &mdash; 30 days to return unworn items, personalized items final sale.
+                &mdash; all sales are final. Anything faulty, damaged or incorrect is replaced or refunded in full.
               </p>
             </form>
 
@@ -765,8 +785,21 @@ pages.push(
                   <td>When you make a one-time or monthly donation</td>
                   <td>To confirm your gift and, for a monthly gift, to let you change or stop it</td>
                 </tr>
+                <tr>
+                  <td>Your name on the public donation leaderboard</td>
+                  <td>Only if you tick the box asking for it when you donate</td>
+                  <td>To thank supporters publicly. Nothing is published unless you ask for it, and never your email address, your message or anyone else&rsquo;s details</td>
+                </tr>
 </tbody>
             </table>
+          </div>
+
+          <div class="callout">
+            <p>
+              <strong>Your name goes on the donation leaderboard only if you ask.</strong> The box is unticked
+              by default, and a gift is recorded whether or not you tick it. If you change your mind, email us
+              and we will take your name off the page &mdash; your donation stays exactly as it is.
+            </p>
           </div>
 
           <div class="callout">
@@ -1016,121 +1049,99 @@ pages.push(
     file: 'refund-policy.html',
     title: 'Refunds & Returns',
     description:
-      'Lebanon Hockey refund and return policy: 30 days, unworn with tags, personalized items final sale.',
+      'Lebanon Hockey refund policy: all sales are final. Faulty, damaged or incorrect items are replaced or refunded in full.',
     heading: 'Refunds &amp; <span class="accent">Returns</span>',
-    lead: 'Thirty days to change your mind. Faulty goods always put right.',
+    lead: 'All sales are final. Anything faulty, damaged or wrong is always put right.',
     body: `          <div class="callout">
             <p>
-              <strong>In short:</strong> you have 30 days from delivery to return unworn, unwashed items with
-              their tags attached. Personalized and custom-made items cannot be returned unless they are
-              faulty. If anything arrives damaged or wrong, we cover it in full.
+              <strong>In short:</strong> all sales are final. Orders cannot be returned, exchanged or
+              refunded once they are placed. The one exception is an item that arrives faulty, damaged or
+              not what you ordered &mdash; we put that right.
             </p>
           </div>
 
-          <h2>1. The return window</h2>
+          <h2>1. All sales are final</h2>
           <p>
-            You may request a return within <strong>30 days of delivery</strong>. Contact us before sending
-            anything back so we can give you a return reference.
+            Every item sold by the Lebanese Ice Hockey Federation is <strong>non-refundable and
+            non-returnable</strong>. We do not accept returns for change of mind, for the wrong size, or
+            because an item is no longer wanted.
+          </p>
+          <p>
+            The federation is a small organization and its merchandise is produced in short runs, much of it
+            made to order. Stock that comes back cannot be resold, and the cost of handling returns comes
+            straight out of what is available for the programs. This policy is what keeps the shop viable.
           </p>
 
-          <h2>2. Condition of returned items</h2>
-          <p>To be accepted, an item must be:</p>
-          <ul>
-            <li>Unworn, unwashed, and free of odour, marks, or damage;</li>
-            <li>In its original packaging with all tags still attached;</li>
-            <li>Accompanied by your order number.</li>
-          </ul>
+          <h2>2. Check your size before you order</h2>
           <p>
-            We may refuse a return, or reduce the refund, where an item has been handled more than was
-            necessary to check its size and fit.
+            Because an order cannot be exchanged, please check the sizing note on the product page before
+            you buy, and ask us for the garment measurements if you are at all unsure. Email
+            <a href="mailto:info@lebanonhockey.com">info@lebanonhockey.com</a> <em>before</em> ordering and we
+            will help you choose &mdash; we would far rather spend five minutes on that than have you stuck
+            with something that does not fit.
           </p>
 
-          <h2>3. Personalized and custom-made items</h2>
+          <h2>3. Faulty, damaged, or incorrect items</h2>
           <p>
-            Items made or altered to your specification are <strong>final sale</strong> and cannot be returned
-            or exchanged unless they are faulty or we made an error. This includes:
+            This is the exception, and it is not discretionary. If an item arrives faulty, damaged in
+            transit, or is not the item you ordered, contact us within <strong>14 days of delivery</strong>
+            with your order number and photographs. We will replace it or refund it in full, including
+            shipping, at no cost to you.
           </p>
-          <ul>
-            <li>Official Team Lebanon Hockey Jerseys with a name, number, or other personalization;</li>
-            <li>Any other item customised at your request.</li>
-          </ul>
           <p>
-            Please check your spelling and size carefully before ordering a personalized item. We confirm the
-            details with you before production wherever possible.
+            A manufacturing fault that shows up later is still a fault. Tell us and we will look at it.
           </p>
 
-          <h2>4. Faulty, damaged, or incorrect items</h2>
+          <h2>4. Personalized and custom-made items</h2>
           <p>
-            If an item arrives faulty or damaged, or is not what you ordered, tell us within
-            <strong>14 days of delivery</strong> and send a photograph. We will arrange a full refund or a
-            replacement, whichever you prefer, and <strong>we pay the return shipping</strong>. This applies to
-            personalized items too.
+            Items personalized with a name or number are made individually for you and cannot be resold in
+            any circumstances. Please check the spelling and number on your order carefully before paying.
+            Section 3 still applies: a personalized item that is faulty, or that was made with details
+            different from the ones you submitted, is our error and we fix it.
           </p>
 
-          <h2>5. How to start a return</h2>
-          <ol>
-            <li>
-              Email <a href="mailto:info@lebanonhockey.com">info@lebanonhockey.com</a> with your order number
-              (it looks like <code>LH-2026-00001</code>), the item, and the reason.
-            </li>
-            <li>We reply with a return reference and the address to send it to.</li>
-            <li>Pack the item securely with the reference enclosed and send it back.</li>
-            <li>We inspect it on arrival and confirm your refund by email.</li>
-          </ol>
+          <h2>5. Cancelling an order</h2>
           <p>
-            You can find your order number and download your invoice at any time from
-            <a href="account.html">your account</a>.
+            An order can only be cancelled if production has not started. Email us as soon as possible with
+            your order number. Once an item has gone into production it cannot be cancelled.
           </p>
 
-          <h2>6. Return shipping</h2>
+          <h2>6. Orders paid by Interac e-Transfer</h2>
           <p>
-            For a change of mind, <strong>you pay the return postage</strong>, and we recommend a tracked
-            service — we cannot refund an item that does not reach us. Original shipping charges are not
-            refunded. For faulty or incorrect items, we cover shipping both ways.
+            An e-Transfer order is reserved when you place it and becomes final when the transfer arrives. If
+            you decide not to send the transfer, simply do not send it &mdash; nothing is charged and the
+            order lapses. Once the transfer has been received the policy above applies in full.
           </p>
 
-          <h2>7. Refund timing and method</h2>
+          <h2>7. Delivery times</h2>
           <p>
-            Approved refunds are issued to the <strong>original payment method</strong> through Stripe. We
-            process refunds within 3 business days of receiving and inspecting the item, and your bank
-            typically takes a further <strong>5 to 10 business days</strong> to post it. We cannot refund to a
-            different card or account.
+            Most orders ship within 2&ndash;3 weeks. Delivery after that depends on where the parcel is
+            going; the estimate for your destination is shown at checkout once you choose your country. A
+            delivery taking longer than estimated is not grounds for a refund, but tell us if a parcel seems
+            lost and we will chase it.
           </p>
 
-          <h2>8. Exchanges</h2>
+          <h2>8. Donations and memberships</h2>
           <p>
-            Need a different size? Return the original under the rules above and place a new order — that way
-            you secure your size before it sells out. Tell us it is an exchange and we will not charge
-            shipping on the replacement.
+            Donations and membership fees are also non-refundable. A monthly donation can be stopped at any
+            time using the link in your confirmation email; stopping it prevents future charges and does not
+            refund past ones.
           </p>
 
-          <h2>9. Items we cannot accept</h2>
-          <ul>
-            <li>Personalized or custom-made items, unless faulty;</li>
-            <li>Items returned more than 30 days after delivery;</li>
-            <li>Items that are worn, washed, damaged, or missing their tags;</li>
-            <li>Gift cards, where offered.</li>
-          </ul>
-
-          <h2>10. Order cancellation</h2>
+          <h2>9. Your statutory rights</h2>
           <p>
-            Contact us as soon as possible if you want to cancel. If the order has not entered production or
-            shipping we will cancel it and refund you in full. Personalized items cannot be cancelled once
-            production has begun.
-          </p>
-
-          <h2>11. Your statutory rights</h2>
-          <p>
-            Nothing in this policy limits your rights under Quebec's <em>Consumer Protection Act</em> or other
-            applicable consumer law. Those rights apply in addition to the terms above, including where goods
-            do not match their description or are not fit for their ordinary purpose.
+            This policy does not and cannot limit your rights under Quebec's <em>Consumer Protection Act</em>
+            or other applicable consumer law. Those rights apply in addition to the terms above, in
+            particular where goods do not match their description or are not fit for their ordinary purpose.
+            Where this policy and the law disagree, the law wins.
           </p>
 
           <div class="note">
             <p>
-              <strong>Need help with a return?</strong> Email
-              <a href="mailto:info@lebanonhockey.com">info@lebanonhockey.com</a> — we would much rather sort it
-              out than have you stuck with something that does not fit.
+              <strong>Something wrong with your order?</strong> Email
+              <a href="mailto:info@lebanonhockey.com">info@lebanonhockey.com</a> with your order number. A
+              faulty, damaged or incorrect item is always put right &mdash; the policy above is about change
+              of mind, not about leaving you with something broken.
             </p>
           </div>`,
   })

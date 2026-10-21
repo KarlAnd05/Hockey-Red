@@ -57,7 +57,16 @@ export function validateAmount(amountCents) {
    are handled: the raw token exists in the donor's inbox and nowhere else. */
 const hashToken = (token) => createHash('sha256').update(token).digest('hex');
 
-export function createPendingDonation({ kind, email, name, message, amountCents, coverFee }) {
+export function createPendingDonation({
+  kind,
+  email,
+  name,
+  message,
+  amountCents,
+  coverFee,
+  displayPublicly = false,
+  publicName = '',
+}) {
   const amount = Math.round(Number(amountCents) || 0);
   const fee = coverFee ? feeForAmount(amount) : 0;
   const total = amount + fee;
@@ -66,8 +75,9 @@ export function createPendingDonation({ kind, email, name, message, amountCents,
   const info = db
     .prepare(
       `INSERT INTO donations
-         (kind, status, email, name, message, amount_cents, fee_cents, total_cents, currency, manage_token_hash)
-       VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)`
+         (kind, status, email, name, message, amount_cents, fee_cents, total_cents, currency,
+          manage_token_hash, display_publicly, public_name)
+       VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       kind === 'monthly' ? 'monthly' : 'one_time',
@@ -78,7 +88,9 @@ export function createPendingDonation({ kind, email, name, message, amountCents,
       fee,
       total,
       config.currency,
-      hashToken(manageToken)
+      hashToken(manageToken),
+      displayPublicly ? 1 : 0,
+      String(publicName || '').trim().slice(0, 160)
     );
 
   return { donationId: Number(info.lastInsertRowid), manageToken, amount, fee, total };
@@ -220,6 +232,8 @@ export function serialiseDonation(donation, { includePayments = false } = {}) {
     feeCents: donation.fee_cents,
     totalCents: donation.total_cents,
     currency: donation.currency,
+    displayPublicly: Boolean(donation.display_publicly),
+    publicName: donation.public_name || '',
     createdAt: donation.created_at,
     paidAt: donation.paid_at,
     canceledAt: donation.canceled_at,
@@ -240,4 +254,63 @@ export function serialiseDonation(donation, { includePayments = false } = {}) {
   }
 
   return out;
+}
+
+/* ==========================================================================
+   Public leaderboard
+   --------------------------------------------------------------------------
+   Two conditions, both required, and the order matters for understanding why:
+
+     - The donor opted in. display_publicly defaults to 0, so a gift given
+       before this feature existed, or given without ticking the box, is
+       private. Consent is given, never assumed.
+     - The gift is actually settled. 'paid' is a completed one-time gift and
+       'active' is a live monthly one. A 'pending' gift is a checkout somebody
+       started; publishing that name would announce a donation that may never
+       be paid, and would let anyone put a name on the page for free.
+   ========================================================================== */
+const SETTLED = ["'paid'", "'active'"].join(', ');
+
+export function leaderboard({ limit = 100 } = {}) {
+  return db
+    .prepare(
+      `SELECT id, kind, amount_cents, currency, paid_at, created_at,
+              CASE WHEN public_name <> '' THEN public_name ELSE name END AS display_name
+         FROM donations
+        WHERE display_publicly = 1
+          AND status IN (${SETTLED})
+          AND CASE WHEN public_name <> '' THEN public_name ELSE name END <> ''
+        ORDER BY amount_cents DESC, COALESCE(paid_at, created_at) ASC
+        LIMIT ?`
+    )
+    .all(Math.max(1, Math.min(500, Number(limit) || 100)));
+}
+
+export function serialiseLeaderboardEntry(row) {
+  return {
+    name: row.display_name,
+    kind: row.kind,
+    amountCents: row.amount_cents,
+    currency: row.currency,
+    since: String(row.paid_at || row.created_at || '').slice(0, 10),
+  };
+}
+
+/** Admin: change how a gift appears publicly, without touching the gift. */
+export function setDonationVisibility(donationId, { displayPublicly, publicName }) {
+  const donation = findDonation(donationId);
+  if (!donation) return null;
+
+  db.prepare(
+    `UPDATE donations
+        SET display_publicly = ?,
+            public_name = ?
+      WHERE id = ?`
+  ).run(
+    displayPublicly ? 1 : 0,
+    String(publicName ?? donation.public_name ?? '').trim().slice(0, 160),
+    donation.id
+  );
+
+  return findDonation(donation.id);
 }

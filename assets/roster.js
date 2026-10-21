@@ -91,8 +91,19 @@
   (async () => {
     try {
       data = await api(`/api/roster?program=${encodeURIComponent(host.dataset.program || 'womens')}`);
-    } catch {
-      host.innerHTML = '';
+    } catch (error) {
+      /* Say something. Blanking the section on failure made a stale server
+         indistinguishable from "the roster was never built" - the heading sat
+         there with nothing under it and no clue why. */
+      host.innerHTML = `
+        <div class="empty-state roster-empty">
+          <h3>The roster could not be loaded</h3>
+          <p>${escapeHtml(
+            error.status === 404
+              ? 'The server is running an older version of the site. Restarting it will fix this.'
+              : error.message
+          )}</p>
+        </div>`;
       return;
     }
 

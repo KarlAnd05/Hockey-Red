@@ -17,6 +17,8 @@ import {
   totalForAmount,
   validateAmount,
   markDonationPaid,
+  leaderboard,
+  serialiseLeaderboardEntry,
 } from '../lib/donations.js';
 import { sendDonationThankYou } from '../lib/notifications.js';
 
@@ -44,6 +46,19 @@ donateRouter.get('/donate/config', (req, res) => {
 });
 
 /* --------------------------------------------------------------------------
+   The public leaderboard
+   --------------------------------------------------------------------------
+   Only settled gifts whose donor opted in. See lib/donations.js for why both
+   conditions are required.
+   -------------------------------------------------------------------------- */
+donateRouter.get('/donate/leaderboard', (req, res) => {
+  res.json({
+    currency: config.currency,
+    entries: leaderboard({ limit: 100 }).map(serialiseLeaderboardEntry),
+  });
+});
+
+/* --------------------------------------------------------------------------
    Start a donation
    -------------------------------------------------------------------------- */
 donateRouter.post('/donate', async (req, res) => {
@@ -52,8 +67,21 @@ donateRouter.post('/donate', async (req, res) => {
   const amountCents = Math.round(Number(req.body?.amountCents) || 0);
   const coverFee = Boolean(req.body?.coverFee);
 
-  if (!EMAIL_RE.test(email)) {
-    return res.status(400).json({ error: 'Enter a valid email address so we can confirm your gift.' });
+  /* Email is required for a monthly gift and optional for a one-time one.
+
+     The asymmetry is the point. A recurring charge has to come with a way to
+     stop it, and the donor's only way out is the manage link in the email - a
+     subscription with no address attached is a charge the donor cannot cancel
+     by themselves. A one-time gift has nothing to cancel, so insisting on an
+     address there only costs the federation donations. */
+  if (kind === 'monthly' && !EMAIL_RE.test(email)) {
+    return res.status(400).json({
+      error: 'A monthly gift needs an email address: that is where the link to cancel it is sent.',
+    });
+  }
+
+  if (email && !EMAIL_RE.test(email)) {
+    return res.status(400).json({ error: 'That email address does not look right.' });
   }
 
   const amountError = validateAmount(amountCents);
@@ -75,6 +103,10 @@ donateRouter.post('/donate', async (req, res) => {
     message: req.body?.message,
     amountCents,
     coverFee,
+    /* Recorded now, published only once the gift is settled. An unpaid
+       checkout must never put a name on the public page. */
+    displayPublicly: Boolean(req.body?.displayPublicly),
+    publicName: req.body?.publicName || req.body?.name,
   });
 
   try {

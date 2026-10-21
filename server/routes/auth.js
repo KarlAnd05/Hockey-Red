@@ -57,6 +57,10 @@ authRouter.get('/session', (req, res) => {
        charge. The client uses this to disable checkout up front instead of
        letting someone fill in an address and fail on submit. */
     paymentsEnabled: stripeEnabled,
+    /* Interac e-Transfer needs no payment provider, so it can be the only way
+       to pay while cards are still being set up. The client needs both flags
+       to decide what to offer - and whether to close the form at all. */
+    etransferEnabled: Boolean(config.etransferEmail),
     currency: config.currency,
   });
 });

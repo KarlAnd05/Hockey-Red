@@ -2,11 +2,11 @@ import { Router } from 'express';
 import { db } from '../db.js';
 import { config } from '../config.js';
 import { requireAdmin } from '../middleware/auth.js';
-import { serialiseOrder } from '../lib/orders.js';
+import { serialiseOrder, markOrderPaid } from '../lib/orders.js';
 import { generateInvoicePdf } from '../lib/invoice.js';
 import { hashPassword, validatePassword } from '../lib/password.js';
 import { listContent, setContent, resetContent, syncAllPages } from '../lib/content.js';
-import { serialiseDonation } from '../lib/donations.js';
+import { serialiseDonation, setDonationVisibility } from '../lib/donations.js';
 import { listPosts, findPost, serialisePost, uniqueSlug as uniqueNewsSlug } from '../lib/news.js';
 import { saveImageBuffer, deleteUpload, UploadError, MAX_UPLOAD_BYTES } from '../lib/uploads.js';
 import {
@@ -24,8 +24,10 @@ import {
   serialiseRegistration,
   markRegistrationPaid,
   registrationsCsv,
+  registrationsXlsx,
 } from '../lib/registrations.js';
 import { listRoster, findPlayer, serialisePlayer, POSITIONS } from '../lib/roster.js';
+import { listZones, findZone, COUNTRIES } from '../lib/shipping.js';
 import { raw } from 'express';
 
 export const adminRouter = Router();
@@ -62,6 +64,86 @@ function uniqueSlug(base, table, excludeId = null) {
 /* ==========================================================================
    Dashboard
    ========================================================================== */
+/* ==========================================================================
+   What needs attention
+   --------------------------------------------------------------------------
+   The dashboard used to show revenue, orders and stock - the shop, and nothing
+   else. The federation side of this admin (registrations, chat, messages,
+   donations, game sheets) had no presence at all, so the only way to find out
+   that somebody was waiting on a reply was to open each module and look.
+
+   This is the answer to "what do I have to do today", and nothing else. A count
+   belongs here only when it means somebody is waiting, or money is sitting
+   unconfirmed - a plain total of how many teams exist is not a task, and would
+   dilute the list into decoration.
+   ========================================================================== */
+adminRouter.get('/overview', (req, res) => {
+  const count = (sql, ...params) => db.prepare(sql).get(...params).n;
+
+  const items = [
+    {
+      key: 'etransfers',
+      label: 'Orders awaiting an e-Transfer',
+      n: count("SELECT COUNT(*) AS n FROM orders WHERE status = 'pending' AND payment_method = 'etransfer'"),
+      href: 'orders.html',
+      action: 'Confirm payment',
+      urgent: true,
+    },
+    {
+      key: 'chat',
+      label: 'Chat threads waiting on a reply',
+      /* A thread where the visitor spoke last. An admin reply moves it off
+         this list, which is what makes the count mean something. */
+      n: count(
+        `SELECT COUNT(*) AS n FROM chat_threads t
+          WHERE t.status = 'open'
+            AND (SELECT m.sender FROM chat_messages m
+                  WHERE m.thread_id = t.id ORDER BY m.id DESC LIMIT 1) = 'visitor'`
+      ),
+      href: 'chat.html',
+      action: 'Reply',
+      urgent: true,
+    },
+    {
+      key: 'messages',
+      label: 'Contact messages',
+      n: count('SELECT COUNT(*) AS n FROM contact_messages'),
+      href: 'messages.html',
+      action: 'Read',
+    },
+    {
+      key: 'registrations',
+      label: 'Memberships with the fee unpaid',
+      n: count("SELECT COUNT(*) AS n FROM registrations WHERE payment_status <> 'paid'"),
+      href: 'registrations.html',
+      action: 'Review',
+    },
+    {
+      key: 'donations',
+      label: 'Donations stuck pending',
+      n: count("SELECT COUNT(*) AS n FROM donations WHERE status = 'pending'"),
+      href: 'donations.html',
+      action: 'Check',
+    },
+    {
+      key: 'games',
+      label: 'Game sheets still in draft',
+      n: count("SELECT COUNT(*) AS n FROM games WHERE status = 'draft'"),
+      href: 'games.html',
+      action: 'Finish',
+    },
+    {
+      key: 'hidden-players',
+      label: 'Players hidden from the public site',
+      n: count('SELECT COUNT(*) AS n FROM players WHERE active = 0'),
+      href: 'teams.html',
+      action: 'Review',
+    },
+  ];
+
+  res.json({ items: items.filter((i) => i.n > 0) });
+});
+
 adminRouter.get('/stats', (req, res) => {
   const revenue = db
     .prepare(`SELECT COALESCE(SUM(total_cents), 0) AS total FROM orders WHERE status IN ${PAID_STATUSES}`)
@@ -381,7 +463,7 @@ adminRouter.get('/orders/:id', (req, res) => {
   res.json({ order: serialiseOrder(order) });
 });
 
-adminRouter.patch('/orders/:id', (req, res) => {
+adminRouter.patch('/orders/:id', async (req, res) => {
   const id = Number(req.params.id);
   const status = String(req.body?.status || '');
   const allowed = ['pending', 'paid', 'fulfilled', 'cancelled', 'refunded'];
@@ -392,6 +474,20 @@ adminRouter.patch('/orders/:id', (req, res) => {
 
   const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
   if (!order) return res.status(404).json({ error: 'Order not found.' });
+
+  /* Settling an order is more than a status change: stock comes down, the
+     discount redemption is counted, the invoice is cut and two emails go out.
+     A bare UPDATE here did none of that, so an order marked paid by hand - the
+     Interac e-Transfer case, and the only one that exists while card payments
+     are off - ended up half settled.
+
+     markOrderPaid does the whole job and is idempotent, so it is safe to call
+     whether the money came from Stripe or arrived as a transfer. It only acts
+     on a pending order, which is why the guard is on the CURRENT status. */
+  if (status === 'paid' && order.status === 'pending') {
+    const settled = await markOrderPaid(id);
+    return res.json({ ok: true, order: serialiseOrder(settled, { includeItems: false }) });
+  }
 
   db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, id);
   res.json({ ok: true });
@@ -659,9 +755,31 @@ adminRouter.delete('/discounts/:id', (req, res) => {
    Contact messages
    ========================================================================== */
 adminRouter.get('/messages', (req, res) => {
+  const search = String(req.query.search || '').trim();
+  const where = search
+    ? 'WHERE email LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR message LIKE ?'
+    : '';
+  const params = search ? Array(4).fill(`%${search}%`) : [];
+
   res.json({
-    messages: db.prepare('SELECT * FROM contact_messages ORDER BY id DESC LIMIT 200').all(),
+    messages: db
+      .prepare(`SELECT * FROM contact_messages ${where} ORDER BY id DESC LIMIT 200`)
+      .all(...params)
+      .map((m) => ({
+        id: m.id,
+        firstName: m.first_name,
+        lastName: m.last_name,
+        email: m.email,
+        message: m.message,
+        createdAt: m.created_at,
+      })),
   });
+});
+
+adminRouter.delete('/messages/:id', (req, res) => {
+  const info = db.prepare('DELETE FROM contact_messages WHERE id = ?').run(Number(req.params.id));
+  if (!info.changes) return res.status(404).json({ error: 'Message not found.' });
+  res.json({ ok: true });
 });
 
 /* ==========================================================================
@@ -772,6 +890,125 @@ adminRouter.delete('/news/:id', (req, res) => {
 });
 
 /* ==========================================================================
+   Shipping zones
+   ========================================================================== */
+adminRouter.get('/shipping', (req, res) => {
+  res.json({ zones: listZones({ includeInactive: true }), countries: COUNTRIES });
+});
+
+function readZoneBody(body, existing = {}) {
+  const int = (key, fallback) => {
+    const v = body[key];
+    if (v === undefined || v === '') return fallback ?? 0;
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) && n >= 0 ? n : (fallback ?? 0);
+  };
+
+  return {
+    name: body.name === undefined ? existing.name || '' : String(body.name).trim().slice(0, 120),
+    flatCents: int('flatCents', existing.flat_cents),
+    perItemCents: int('perItemCents', existing.per_item_cents),
+    freeOverCents: int('freeOverCents', existing.free_over_cents),
+    minDays: int('deliveryMinDays', existing.delivery_min_days),
+    maxDays: int('deliveryMaxDays', existing.delivery_max_days),
+    active: body.active === undefined ? (existing.active ?? 1) : body.active ? 1 : 0,
+    sortOrder: int('sortOrder', existing.sort_order),
+    countries: Array.isArray(body.countries)
+      ? body.countries.map((c) => String(c).trim().toUpperCase()).filter((c) => c.length === 2)
+      : null,
+  };
+}
+
+function writeZoneCountries(zoneId, codes) {
+  if (!codes) return;
+  db.prepare('DELETE FROM shipping_zone_countries WHERE zone_id = ?').run(zoneId);
+  const insert = db.prepare(
+    'INSERT OR IGNORE INTO shipping_zone_countries (zone_id, country_code) VALUES (?, ?)'
+  );
+  /* A country belongs to one zone. Claiming it here removes it from whichever
+     zone had it, so a destination can never match two rates. */
+  const steal = db.prepare('DELETE FROM shipping_zone_countries WHERE country_code = ? AND zone_id != ?');
+  for (const code of codes) {
+    steal.run(code, zoneId);
+    insert.run(zoneId, code);
+  }
+}
+
+adminRouter.post('/shipping', (req, res) => {
+  const v = readZoneBody(req.body || {});
+  if (!v.name) return res.status(400).json({ error: 'Give the zone a name.' });
+
+  const info = db
+    .prepare(
+      `INSERT INTO shipping_zones
+         (name, flat_cents, per_item_cents, free_over_cents, delivery_min_days, delivery_max_days, active, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(v.name, v.flatCents, v.perItemCents, v.freeOverCents, v.minDays, v.maxDays, v.active, v.sortOrder);
+
+  const id = Number(info.lastInsertRowid);
+  writeZoneCountries(id, v.countries);
+  res.status(201).json({ id });
+});
+
+adminRouter.patch('/shipping/:id', (req, res) => {
+  const existing = findZone(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Zone not found.' });
+
+  const v = readZoneBody(req.body || {}, existing);
+  db.prepare(
+    `UPDATE shipping_zones
+        SET name = ?, flat_cents = ?, per_item_cents = ?, free_over_cents = ?,
+            delivery_min_days = ?, delivery_max_days = ?, active = ?, sort_order = ?
+      WHERE id = ?`
+  ).run(v.name, v.flatCents, v.perItemCents, v.freeOverCents, v.minDays, v.maxDays, v.active, v.sortOrder, existing.id);
+
+  writeZoneCountries(existing.id, v.countries);
+  res.json({ ok: true });
+});
+
+/* Exactly one zone is the catch-all for unmapped countries. Promoting one
+   demotes the rest, because two defaults would make the quote depend on row
+   order - and none at all would risk a free shipment to anywhere unlisted. */
+adminRouter.patch('/shipping/:id/default', (req, res) => {
+  const zone = findZone(req.params.id);
+  if (!zone) return res.status(404).json({ error: 'Zone not found.' });
+
+  db.prepare('UPDATE shipping_zones SET is_default = 0').run();
+  db.prepare('UPDATE shipping_zones SET is_default = 1 WHERE id = ?').run(zone.id);
+  res.json({ ok: true });
+});
+
+adminRouter.delete('/shipping/:id', (req, res) => {
+  const zone = findZone(req.params.id);
+  if (!zone) return res.status(404).json({ error: 'Zone not found.' });
+  if (zone.is_default) {
+    return res
+      .status(400)
+      .json({ error: 'Make another zone the catch-all before deleting this one.' });
+  }
+  db.prepare('DELETE FROM shipping_zones WHERE id = ?').run(zone.id);
+  res.json({ ok: true });
+});
+
+/* The leaderboard entry for one gift.
+
+   Deliberately separate from anything that edits the gift itself: taking a
+   name off the public page must never risk altering the amount, the status or
+   the donor's record. Clearing public_name while leaving display_publicly on
+   falls back to the donor's own name; unticking display_publicly removes them
+   from the page entirely. Either way the donation stays exactly as it was. */
+adminRouter.patch('/donations/:id/visibility', (req, res) => {
+  const updated = setDonationVisibility(req.params.id, {
+    displayPublicly: Boolean(req.body?.displayPublicly),
+    publicName: req.body?.publicName,
+  });
+
+  if (!updated) return res.status(404).json({ error: 'Donation not found.' });
+  res.json({ ok: true, donation: serialiseDonation(updated) });
+});
+
+/* ==========================================================================
    Roster
    ========================================================================== */
 adminRouter.get('/roster', (req, res) => {
@@ -848,7 +1085,7 @@ adminRouter.delete('/roster/:id', (req, res) => {
    Membership registrations
    ========================================================================== */
 adminRouter.get('/registrations', (req, res) => {
-  const registrations = listRegistrations();
+  const registrations = listRegistrations({ search: req.query.search });
   res.json({
     registrations,
     currency: config.currency,
@@ -870,6 +1107,20 @@ adminRouter.get('/registrations.csv', (req, res) => {
   res.setHeader('Content-Disposition', 'attachment; filename="lihf-registrations.csv"');
   res.setHeader('Cache-Control', 'no-store');
   res.send(registrationsCsv());
+});
+
+/* The same records as a real spreadsheet. A current search narrows it, so what
+   downloads is what the administrator is looking at. */
+adminRouter.get('/registrations.xlsx', (req, res) => {
+  const file = registrationsXlsx({ search: req.query.search });
+
+  res.setHeader(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  );
+  res.setHeader('Content-Disposition', 'attachment; filename="lihf-members.xlsx"');
+  res.setHeader('Cache-Control', 'no-store');
+  res.send(file);
 });
 
 /* Marked by hand when a fee arrives by e-transfer, which is how most will be

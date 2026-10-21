@@ -22,6 +22,7 @@ const ICONS = {
   chat: '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.3-.6L3 21l1.8-5.2A8.2 8.2 0 0 1 3.6 11.5a8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 8.4 8.4z"/>',
   registrations: '<path d="M16 3H8a2 2 0 0 0-2 2v16l6-3 6 3V5a2 2 0 0 0-2-2z"/><path d="M9 8h6M9 12h4"/>',
   roster: '<path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>',
+  shipping: '<path d="M3 7h11v10H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="1.6"/><circle cx="17.5" cy="18" r="1.6"/>',
 };
 
 const NAV = [
@@ -34,8 +35,14 @@ const NAV = [
   ['donations.html', 'donations', 'Donations'],
   ['news.html', 'news', 'News'],
   ['chat.html', 'chat', 'Chat'],
+  ['messages.html', 'messages', 'Messages'],
+  ['sponsors.html', 'sponsors', 'Sponsors'],
+  ['programs.html', 'programs', 'Schedule'],
   ['registrations.html', 'registrations', 'Registrations'],
+  ['teams.html', 'teams', 'Teams'],
+  ['games.html', 'games', 'Game sheets'],
   ['roster.html', 'roster', 'Roster'],
+  ['shipping.html', 'shipping', 'Shipping'],
   ['content.html', 'content', 'Page text'],
 ];
 
@@ -106,8 +113,13 @@ const pages = [
     key: 'dashboard',
     title: 'Dashboard',
     heading: 'Dashboard',
-    lead: 'Revenue, orders, and stock at a glance.',
-    body: `      <div class="stat-grid" data-stats></div>
+    lead: 'What needs attention, then revenue, orders and stock.',
+    body: `      <section class="admin-panel" data-attention-panel hidden>
+        <header><h2>Needs attention</h2></header>
+        <div data-attention></div>
+      </section>
+
+      <div class="stat-grid" data-stats></div>
 
       <section class="admin-panel">
         <header><h2>Revenue, last 30 days</h2></header>
@@ -248,12 +260,30 @@ const pages = [
     heading: 'Membership registrations',
     lead: 'Applications from the membership form. Eligibility details are shown only when you open a record.',
     actions:
-      '<a class="button ghost small" href="/api/admin/registrations.csv">Export CSV</a>',
+      '<a class="button primary small" href="/api/admin/registrations.xlsx" data-export-xlsx>Export Excel</a>' +
+      '<a class="button ghost small" href="/api/admin/registrations.csv" data-export-csv>Export CSV</a>',
     body: `      <div class="stat-grid" data-registration-stats></div>
+
+      <div class="admin-toolbar">
+        <input type="search" placeholder="Search name, email or phone" data-registration-search>
+      </div>
 
       <section class="admin-panel">
         <div data-registrations></div>
       </section>`,
+  },
+  {
+    file: 'games.html',
+    key: 'games',
+    title: 'Game sheets',
+    heading: 'Game sheets',
+    lead: 'A game, and the people named on it. Players are pulled from the team rosters and from paid membership records, so nothing is typed twice.',
+    actions: '<button type="button" class="button primary small" data-new-game>New game</button>',
+    body: `      <section class="admin-panel">
+        <div data-games-list></div>
+      </section>
+
+      <section class="admin-panel" data-game-sheet hidden></section>`,
   },
   {
     file: 'roster.html',
@@ -271,6 +301,76 @@ const pages = [
 
       <section class="admin-panel">
         <div data-roster-admin></div>
+      </section>`,
+  },
+  {
+    file: 'messages.html',
+    key: 'messages',
+    title: 'Messages',
+    heading: 'Contact messages',
+    lead: 'Everything sent through the contact form. Reply from your own mail client - the address is a link.',
+    body: `      <div class="admin-toolbar">
+        <input type="search" placeholder="Search name, email or message" data-message-search>
+      </div>
+
+      <section class="admin-panel">
+        <div data-messages></div>
+      </section>`,
+  },
+  {
+    file: 'sponsors.html',
+    key: 'sponsors',
+    title: 'Sponsors',
+    heading: 'Sponsors and partners',
+    lead: 'The partner cards on the public sponsors page. They sort themselves by tier, so moving a sponsor up means changing their tier.',
+    actions: '<button type="button" class="button primary small" data-new-sponsor>Add sponsor</button>',
+    body: `      <section class="admin-panel">
+        <div data-sponsors-admin></div>
+      </section>`,
+  },
+  {
+    file: 'programs.html',
+    key: 'programs',
+    title: 'Schedule',
+    heading: 'Programs and schedule',
+    lead: 'Camps, sessions, tryouts and tournaments. Dated entries appear first on the public events page, soonest first.',
+    actions: '<button type="button" class="button primary small" data-new-program>Add entry</button>',
+    body: `      <section class="admin-panel">
+        <div data-programs-admin></div>
+      </section>`,
+  },
+  {
+    file: 'teams.html',
+    key: 'teams',
+    title: 'Teams',
+    heading: 'Teams and players',
+    lead: 'The four programs and the players on the public Our Teams pages. Hiding a player removes them from the site everywhere without losing the record.',
+    actions: '<button type="button" class="button primary small" data-new-team-player>Add player</button>',
+    body: `      <div class="admin-toolbar">
+        <label class="admin-filter">
+          Team
+          <select data-team-filter></select>
+        </label>
+        <a class="button ghost small" href="/teams" target="_blank" rel="noopener">View public page</a>
+      </div>
+
+      <section class="admin-panel">
+        <div data-team-detail></div>
+      </section>
+
+      <section class="admin-panel">
+        <div data-team-players></div>
+      </section>`,
+  },
+  {
+    file: 'shipping.html',
+    key: 'shipping',
+    title: 'Shipping',
+    heading: 'Shipping zones',
+    lead: "What a parcel costs depends on where it is going. The seeded rates are placeholders - replace them with your carrier's real prices.",
+    actions: '<button type="button" class="button primary small" data-new-zone>New zone</button>',
+    body: `      <section class="admin-panel">
+        <div data-shipping-zones></div>
       </section>`,
   },
   {

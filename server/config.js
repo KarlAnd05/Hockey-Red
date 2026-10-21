@@ -32,9 +32,22 @@ export const config = {
   adminEmail: (process.env.ADMIN_EMAIL || '').trim().toLowerCase(),
   currency: (process.env.CURRENCY || 'cad').toLowerCase(),
 
+  // Where parcels ship from. Used as the assumed destination on the cart page,
+  // before the customer has given an address - see lib/shipping.js.
+  shippingOriginCountry: (process.env.SHIPPING_ORIGIN_COUNTRY || 'CA').toUpperCase(),
   shippingFlatCents: Number(process.env.SHIPPING_FLAT_CENTS || 1500),
   freeShippingThresholdCents: Number(process.env.FREE_SHIPPING_THRESHOLD_CENTS || 20000),
   taxRate: Number(process.env.TAX_RATE || 0),
+
+  /* --- Interac e-Transfer ----------------------------------------------- *
+   * There is no Interac API to integrate with, so this is a confirmation
+   * workflow: the buyer sends the transfer themselves and the federation
+   * marks the order paid once it lands. Setting the address is what turns
+   * the option on - without somewhere to send the money there is nothing to
+   * offer, so an unset value hides the method rather than showing a broken
+   * one. */
+  etransferEmail: (process.env.ETRANSFER_EMAIL || '').trim().toLowerCase(),
+  etransferName: process.env.ETRANSFER_NAME || 'Lebanese Ice Hockey Federation',
 
   /* --- Donations -------------------------------------------------------- */
   // Stripe's published Canadian card rate. Kept here so a pricing change is one

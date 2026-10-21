@@ -178,7 +178,7 @@
           <div class="empty-state">
             <h3>No orders yet</h3>
             <p>When you place an order it will appear here with its invoice.</p>
-            <a class="button primary small" href="shop.html">Visit the shop</a>
+            <a class="button primary small" href="shop.html">Visit the store</a>
           </div>`;
         return;
       }

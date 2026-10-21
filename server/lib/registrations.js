@@ -19,6 +19,7 @@
  */
 import { db } from '../db.js';
 import { config } from '../config.js';
+import { buildXlsx, safeCell } from './xlsx.js';
 
 export const TIERS = {
   board: { label: 'Board Member / Manager / Coach', amountCents: 15000, eligibility: true },
@@ -152,10 +153,32 @@ export function serialiseRegistration(row) {
   };
 }
 
-export function listRegistrations() {
+export function listRegistrations({ search = '' } = {}) {
+  const term = String(search || '').trim();
+
+  /* Name, email and phone are what an administrator actually has in hand when
+     they go looking for somebody - a parent on the phone, a name on a game
+     sheet. Searching the free-text message as well would surface matches that
+     look like noise. */
+  /* Phone numbers are stored as the member typed them - "+1 514 555 0100" -
+     but somebody searching for one types the digits. Comparing both sides with
+     the separators stripped is what makes that search find anything. */
+  const STRIP = (column) =>
+    `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(${column}, ' ', ''), '-', ''), '(', ''), ')', ''), '.', '')`;
+
+  const where = term
+    ? `WHERE first_name LIKE ? OR last_name LIKE ? OR middle_name LIKE ?
+          OR email LIKE ? OR phone LIKE ? OR ${STRIP('phone')} LIKE ?`
+    : '';
+
+  const digits = term.replace(/[^\d+]/g, '');
+  const params = term
+    ? [...Array(5).fill(`%${term}%`), `%${digits || term}%`]
+    : [];
+
   return db
-    .prepare('SELECT * FROM registrations ORDER BY id DESC LIMIT 500')
-    .all()
+    .prepare(`SELECT * FROM registrations ${where} ORDER BY id DESC LIMIT 500`)
+    .all(...params)
     .map(serialiseRegistration);
 }
 
@@ -194,4 +217,53 @@ export function registrationsCsv() {
   }
 
   return lines.join('\r\n');
+}
+
+/**
+ * The same records as the CSV, as a real spreadsheet.
+ *
+ * Worth having as well as the CSV rather than instead of it: a CSV reinterprets
+ * dates by locale and eats the leading zero on a postal code or a phone number,
+ * which for a membership record is data loss. Every cell here is written as
+ * text unless it is genuinely a number.
+ */
+export function registrationsXlsx({ search = '' } = {}) {
+  const rows = listRegistrations({ search });
+
+  const headers = [
+    'ID', 'Registered', 'Tier', 'Amount', 'Payment', 'Email', 'Phone',
+    'First name', 'Middle name', 'Last name', 'Date of birth', 'Position', 'Shoots',
+    'Height cm', 'Weight kg', 'Place of birth', 'Country of birth', 'City of residence',
+    'Citizenship', '2nd citizenship', "Father's citizenship", "Mother's citizenship",
+    'Highest level played', 'Message',
+  ];
+
+  const body = rows.map((r) => [
+    r.id,
+    safeCell(r.createdAt),
+    safeCell(r.tierLabel),
+    r.amountCents / 100,
+    safeCell(r.paymentStatus),
+    safeCell(r.email),
+    safeCell(r.phone),
+    safeCell(r.firstName),
+    safeCell(r.middleName),
+    safeCell(r.lastName),
+    safeCell(r.dateOfBirth),
+    safeCell(r.position),
+    safeCell(r.shoots),
+    r.heightCm ?? '',
+    r.weightKg ?? '',
+    safeCell(r.placeOfBirth),
+    safeCell(r.countryOfBirth),
+    safeCell(r.cityOfResidence),
+    safeCell(r.citizenship),
+    safeCell(r.citizenshipSecond),
+    safeCell(r.citizenshipFather),
+    safeCell(r.citizenshipMother),
+    safeCell(r.highestLevelPlayed),
+    safeCell(r.message),
+  ]);
+
+  return buildXlsx({ sheetName: 'Members', headers, rows: body });
 }

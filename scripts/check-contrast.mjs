@@ -94,6 +94,9 @@ const checks = [
   ['form error text', T('red-dark'), T('surface'), NORMAL],
   ['form success text', T('ok'), T('surface'), NORMAL],
   ['input text on soft', T('ink'), T('soft'), NORMAL],
+  ['shipping catch-all warning', T('warn'), '#fff8ec', NORMAL],
+  // Player initials stand in for a portrait, so they audit as large text.
+  ['player photo placeholder initials', T('red-dark'), T('soft-2'), LARGE],
   ['placeholder / helper on soft', T('muted'), T('soft'), NORMAL],
 
   // Recognitions: the year is display-scale, so it audits as large text.

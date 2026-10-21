@@ -1361,9 +1361,32 @@ textarea {
   color: #55606a;
 }
 
-.info-card .tier.bronze {
+.info-card .tier.bronze,
+.info-card .tier.partner {
   background: var(--red-tint);
   color: var(--red-dark);
+}
+
+/* A sponsor who has supplied a logo. Contained rather than cropped: a partner's
+   mark should not be cut off to fit a box. */
+.sponsor-logo {
+  display: block;
+  max-width: 160px;
+  max-height: 64px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.info-card h3 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.info-card h3 a:hover {
+  color: var(--red);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .info-card .button {
@@ -2673,4 +2696,638 @@ body.has-lightbox {
 .icon-button svg.cedar-icon {
   fill: currentColor;
   stroke: none;
+}
+
+
+/* ==========================================================================
+   Form validation feedback
+   --------------------------------------------------------------------------
+   Every form carries `novalidate` so the browser's own bubbles stay out of the
+   way. These are what replaces them. Both colour pairs are already audited:
+   --red-dark on --surface is the "form error text" pair, and --red on --surface
+   is the focus-ring pair.
+   ========================================================================== */
+.field-error {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--red-dark);
+}
+
+input.is-invalid,
+select.is-invalid,
+textarea.is-invalid {
+  border-color: var(--red);
+  background: var(--red-tint);
+}
+
+input.is-invalid:focus,
+select.is-invalid:focus,
+textarea.is-invalid:focus {
+  border-color: var(--red);
+  box-shadow: 0 0 0 4px var(--red-tint-2);
+}
+
+/* A ticked-box requirement has no field box to tint, so mark the row. */
+label.is-invalid,
+.checkbox-row input.is-invalid {
+  color: var(--red-dark);
+}
+
+/* ==========================================================================
+   Our Teams
+   ========================================================================== */
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--s-5);
+}
+
+.team-card {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.team-card:hover,
+.team-card:focus-visible {
+  transform: translateY(-3px);
+  border-color: var(--red);
+  box-shadow: var(--shadow-red);
+}
+
+.team-card-photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--soft-2);
+}
+
+/* No photo yet. Deliberately NOT the height of the photo it replaces: a blank
+   16:9 panel reserves the space of a photograph and fills it with nothing, so
+   four of them read as four empty holes. A short band carries the federation's
+   mark and lets the text that does say something come first. */
+.team-card-band {
+  display: grid;
+  place-items: center;
+  height: 84px;
+  background: var(--gradient-brand);
+}
+
+.team-card-cedar {
+  width: 40px;
+  height: 40px;
+  fill: #ffffff;
+  opacity: 0.9;
+}
+
+.team-card-body {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: var(--s-5);
+}
+
+.team-card-body h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.team-card-body p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.team-card-count {
+  font-weight: 800;
+  font-size: 13px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--red) !important;
+}
+
+/* --- A team's roster ------------------------------------------------------ */
+.squad-block + .squad-block {
+  margin-top: var(--s-8);
+}
+
+.squad-heading {
+  margin: 0 0 var(--s-5);
+  font-size: clamp(22px, 2.4vw, 30px);
+}
+
+.player-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--s-4);
+}
+
+.player-card {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.player-card:hover,
+.player-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--red);
+  box-shadow: var(--shadow-card);
+}
+
+.player-card-photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  object-position: top center;
+  background: var(--soft-2);
+}
+
+/* Most players have no photograph yet. Initials keep the grid even rather than
+   leaving ragged holes in it, but they stay quiet on purpose: a roster of
+   forty-nine saturated red tiles is a wall, and the moment real portraits
+   arrive they should be what the eye goes to, not compete with the filler. */
+.player-card-photo.is-placeholder,
+.player-portrait.is-placeholder {
+  display: grid;
+  place-items: center;
+  background: var(--soft-2);
+  color: var(--red-dark);
+  font-family: var(--font-display, inherit);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+/* The profile page shows one person, so there the mark can carry the brand. */
+.player-portrait.is-placeholder {
+  background: var(--gradient-brand);
+  color: #ffffff;
+}
+
+.player-card-photo.is-placeholder {
+  font-size: 34px;
+}
+
+.player-card-body {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 14px 16px 16px;
+}
+
+.player-card-position {
+  margin: 0;
+  color: var(--red);
+  font-weight: 800;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+.player-card-body h3 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.player-card-detail {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* --- One player ----------------------------------------------------------- */
+.player-profile {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: var(--s-7);
+  align-items: start;
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.player-portrait {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: var(--radius);
+  background: var(--soft-2);
+  font-size: 64px;
+}
+
+.player-facts {
+  display: grid;
+  gap: 0;
+  margin: 0 0 var(--s-5);
+  border-top: 1px solid var(--line);
+}
+
+.player-facts > div {
+  display: grid;
+  grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.player-facts dt {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  align-self: center;
+}
+
+.player-facts dd {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.5;
+}
+
+.player-bio p {
+  font-size: 16.5px;
+  line-height: 1.7;
+}
+
+.empty-note {
+  padding: var(--s-7) 0;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* A 3:4 portrait in a single 343px column makes a 49-player roster a very long
+   scroll. Two narrower columns fit a phone and keep the squad readable. */
+@media (max-width: 600px) {
+  .player-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .player-card-photo.is-placeholder {
+    font-size: 26px;
+  }
+
+  .player-card-body {
+    padding: 10px 12px 12px;
+  }
+
+  .player-card-body h3 {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 760px) {
+  .player-profile {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-5);
+  }
+
+  .player-portrait {
+    max-width: 260px;
+  }
+
+  .player-facts > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}
+
+/* ==========================================================================
+   Donation leaderboard
+   ========================================================================== */
+.leaderboard {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: 720px;
+  border-top: 1px solid var(--line);
+}
+
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 13px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.leaderboard-rank {
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.leaderboard-name {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.leaderboard-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--red-tint);
+  color: var(--red-dark);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  vertical-align: 1px;
+}
+
+.leaderboard-amount {
+  color: var(--red);
+  font-weight: 800;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 480px) {
+  .leaderboard-row {
+    grid-template-columns: 26px minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+
+  .leaderboard-name {
+    font-size: 15px;
+  }
+}
+
+/* ==========================================================================
+   Contact page
+   ========================================================================== */
+.contact-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(320px, 1fr);
+  gap: clamp(32px, 5vw, 72px);
+  align-items: start;
+}
+
+.contact-details h2 {
+  margin: 0 0 var(--s-4);
+  font-size: clamp(22px, 2.4vw, 30px);
+}
+
+.contact-details address {
+  margin-bottom: var(--s-5);
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.contact-list {
+  display: grid;
+  gap: 0;
+  margin: 0 0 var(--s-5);
+  border-top: 1px solid var(--line);
+}
+
+.contact-list > div {
+  display: grid;
+  gap: 2px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.contact-list dt {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.contact-list dd {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.contact-list dd a {
+  color: var(--red);
+  text-decoration: none;
+}
+
+.contact-list dd a:hover {
+  color: var(--red-dark);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.contact-note {
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.7;
+}
+
+.contact-form h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+/* Two short fields side by side; they stack on a phone with everything else. */
+.contact-name-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-4);
+}
+
+@media (max-width: 860px) {
+  .contact-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* On a phone these are the primary actions on the page - an email address to
+     tap and a link to follow. At their desktop line-height they are a 22px
+     target, which is well under what a thumb can hit reliably, so they get
+     real vertical room here rather than relying on precision. */
+  .contact-list > div {
+    padding: 8px 0;
+  }
+
+  .contact-list dd a {
+    display: inline-block;
+    padding: 9px 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .contact-name-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ==========================================================================
+   Programs and schedule
+   ========================================================================== */
+.schedule-row {
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+  gap: clamp(16px, 3vw, 40px);
+  padding: var(--s-5) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.schedule-row:first-child {
+  border-top: 1px solid var(--line);
+}
+
+.schedule-when {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.schedule-kind {
+  justify-self: start;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: var(--red-tint);
+  color: var(--red-dark);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.schedule-date {
+  color: var(--ink-deep);
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.schedule-body h3 {
+  margin: 0 0 6px;
+  font-size: 21px;
+  line-height: 1.25;
+}
+
+.schedule-meta {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 13.5px;
+}
+
+.schedule-body p {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 15.5px;
+  line-height: 1.65;
+}
+
+.schedule-body .button {
+  margin-top: 4px;
+}
+
+@media (max-width: 700px) {
+  .schedule-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+}
+
+/* --- Team facts: coaching staff and honours ------------------------------- *
+ * Carried over from the programme pages that were merged into Our Teams. */
+.team-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: clamp(24px, 4vw, 56px);
+  max-width: 68ch;
+  margin: var(--s-7) auto 0;
+}
+
+.team-facts-col h2 {
+  margin: 0 0 var(--s-4);
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.team-staff,
+.team-honours {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+
+.team-staff > div,
+.team-honours > div {
+  display: grid;
+  gap: 2px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.team-staff dt,
+.team-honours dt {
+  margin: 0;
+  font-weight: 800;
+  font-size: 15.5px;
+}
+
+.team-staff dd,
+.team-honours dd {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+/* An honour is "2023 Kuwait Arab Cup / Gold" - the result is the point, so it
+   carries the brand colour rather than sitting back like a job title. */
+.team-honours dd {
+  color: var(--red);
+  font-weight: 800;
+}
+
+.team-honours dd:empty {
+  display: none;
+}
+
+/* The table sits under the cards as the at-a-glance view. */
+.squad-block .roster-table {
+  margin-top: var(--s-5);
+}
+
+.squad-block .roster-name a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.squad-block .roster-name a:hover {
+  color: var(--red);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }

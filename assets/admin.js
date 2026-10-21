@@ -106,6 +106,38 @@
     const recentHost = document.querySelector('[data-recent-orders]');
     const lowStockHost = document.querySelector('[data-low-stock]');
     const topHost = document.querySelector('[data-top-products]');
+    const attentionPanel = document.querySelector('[data-attention-panel]');
+    const attentionHost = document.querySelector('[data-attention]');
+
+    /* Loaded separately from the shop stats, and allowed to fail on its own:
+       this panel is useful, but a broken one must not take the dashboard with
+       it. An empty list stays hidden - "nothing to do" is best said by the
+       panel not being there. */
+    async function loadAttention() {
+      if (!attentionHost || !attentionPanel) return;
+
+      try {
+        const data = await api('/api/admin/overview');
+        const items = data.items || [];
+        if (!items.length) return;
+
+        attentionPanel.hidden = false;
+        attentionHost.innerHTML = items
+          .map(
+            (item) => `
+          <a class="attention-row${item.urgent ? ' is-urgent' : ''}" href="${escapeHtml(item.href)}">
+            <span class="attention-count">${escapeHtml(String(item.n))}</span>
+            <span class="attention-label">${escapeHtml(item.label)}</span>
+            <span class="attention-action">${escapeHtml(item.action)}</span>
+          </a>`
+          )
+          .join('');
+      } catch {
+        /* leave the panel hidden */
+      }
+    }
+
+    await loadAttention();
 
     const data = await api('/api/admin/stats');
 
@@ -115,7 +147,7 @@
       ['Average order', money(data.averageOrderCents, data.currency), 'Across paid orders'],
       ['Pending orders', String(data.pendingCount), 'Awaiting payment'],
       ['Customers', String(data.customerCount), 'Registered accounts'],
-      ['Active products', String(data.productCount), 'Visible in the shop'],
+      ['Active products', String(data.productCount), 'Visible in the store'],
     ]
       .map(
         ([label, value, sub]) => `
@@ -166,7 +198,7 @@
               )
               .join('')}
           </tbody></table></div>`
-      : '<div class="admin-empty"><h3>No orders yet</h3><p>Orders will appear here once the shop takes its first payment.</p></div>';
+      : '<div class="admin-empty"><h3>No orders yet</h3><p>Orders will appear here once the store takes its first payment.</p></div>';
 
     /* --- Low stock --- */
     lowStockHost.innerHTML = data.lowStock.length
@@ -463,7 +495,7 @@
           'Delete product',
           `<div class="modal-body">
              <p>Delete <strong>${escapeHtml(product.name)}</strong>?</p>
-             <p class="cell-muted">If it appears on any past order it will be hidden from the shop instead of removed, so order history and invoices stay intact.</p>
+             <p class="cell-muted">If it appears on any past order it will be hidden from the store instead of removed, so order history and invoices stay intact.</p>
            </div>`,
           `<button type="button" class="mini-button" data-modal-close>Cancel</button>
            <button type="button" class="mini-button danger" data-confirm-delete>Delete</button>`
@@ -521,7 +553,11 @@
                   <div class="cell-muted">${escapeHtml(order.email)}</div>
                 </td>
                 <td class="cell-muted">${formatDate(order.createdAt)}</td>
-                <td>${statusBadge(order.status)}</td>
+                <td>${statusBadge(order.status)}${
+                  order.paymentMethod === 'etransfer' && order.status === 'pending'
+                    ? '<div class="cell-muted">awaiting e-Transfer</div>'
+                    : ''
+                }</td>
                 <td class="num cell-strong">${money(order.totalCents, order.currency)}</td>
                 <td>
                   <div class="actions">
@@ -591,6 +627,18 @@
             </p>
           </div>
 
+          ${
+            order.paymentMethod === 'etransfer' && order.status === 'pending'
+              ? `<div class="etransfer-pending">
+                   <p><strong>Awaiting an Interac e-Transfer</strong> of ${escapeHtml(
+                     money(order.totalCents, order.currency)
+                   )} with reference <strong>${escapeHtml(order.orderNumber)}</strong>.</p>
+                   <p class="cell-muted">Marking this paid does everything a card payment does: stock comes down, the invoice is cut and the confirmation emails go out. Only do it once the money is in the account.</p>
+                   <button type="button" class="mini-button solid" data-mark-transfer-paid>Transfer received &mdash; mark paid</button>
+                 </div>`
+              : ''
+          }
+
           <label>Status
             <select data-order-status>
               ${['pending', 'paid', 'fulfilled', 'cancelled', 'refunded']
@@ -612,6 +660,21 @@
           });
           closeModal();
           toast('Order updated.', 'success');
+          await load();
+        })
+      );
+
+      /* Same endpoint as the status select - the server routes a pending
+         order moving to paid through markOrderPaid either way. This is just
+         the one-click version of the thing an operator actually wants. */
+      modal.querySelector('[data-mark-transfer-paid]')?.addEventListener('click', () =>
+        guard(async () => {
+          await api(`/api/admin/orders/${order.id}`, {
+            method: 'PATCH',
+            body: { status: 'paid' },
+          });
+          closeModal();
+          toast('Marked paid. Stock, invoice and emails have gone out.', 'success');
           await load();
         })
       );
@@ -1173,6 +1236,1650 @@
   }
 
   /* ========================================================================
+     Shipping zones
+     ======================================================================== */
+  async function initShipping() {
+    const host = document.querySelector('[data-shipping-zones]');
+    let allCountries = [];
+
+    const dollars = (cents) => (Number(cents || 0) / 100).toFixed(2);
+
+    async function load() {
+      host.innerHTML = '<div class="admin-loading">Loading zones...</div>';
+      const data = await api('/api/admin/shipping');
+      allCountries = data.countries;
+
+      const unassigned =
+        allCountries.length - data.zones.reduce((n, z) => n + z.countries.length, 0);
+
+      /* The catch-all prices every country nobody has mapped yet. Give it a
+         free-shipping threshold and a large order to one of those 129
+         countries ships for nothing, which is the one way this screen can
+         quietly cost the federation money. Worth saying out loud. */
+      const fallback = data.zones.find((z) => z.is_default);
+      const leaks = fallback && fallback.free_over_cents > 0;
+
+      host.innerHTML = `
+        <p class="zone-note">
+          ${escapeHtml(String(unassigned))} of ${escapeHtml(String(allCountries.length))} countries
+          are not assigned to a zone and fall to the catch-all, so nothing ever ships for free by accident.
+        </p>
+        ${
+          leaks
+            ? `<p class="zone-warning">
+                 <strong>${escapeHtml(fallback.name)}</strong> is the catch-all and has a free-shipping
+                 threshold of ${escapeHtml(money(fallback.free_over_cents, 'cad'))}. Any order above that
+                 going to one of the ${escapeHtml(String(unassigned))} unmapped countries will ship free.
+                 Either clear the threshold on this zone or make a zone without one the catch-all.
+               </p>`
+            : ''
+        }
+        <div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Zone</th><th class="num">Base</th><th class="num">Per item</th>
+                <th class="num">Free over</th><th>Delivery</th><th class="num">Countries</th>
+                <th>Catch-all</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.zones
+                .map(
+                  (z) => `
+                <tr data-zone="${z.id}">
+                  <td class="cell-strong">${escapeHtml(z.name)}${
+                    z.active ? '' : ' <span class="cell-muted">(off)</span>'
+                  }</td>
+                  <td class="num">${escapeHtml(money(z.flat_cents, 'cad'))}</td>
+                  <td class="num">${z.per_item_cents ? escapeHtml(money(z.per_item_cents, 'cad')) : '—'}</td>
+                  <td class="num">${z.free_over_cents ? escapeHtml(money(z.free_over_cents, 'cad')) : '—'}</td>
+                  <td class="cell-muted">${z.delivery_min_days}–${z.delivery_max_days} days</td>
+                  <td class="num">${z.countries.length}</td>
+                  <td>${
+                    z.is_default
+                      ? '<span class="status-badge is-paid">Catch-all</span>'
+                      : '<button type="button" class="mini-button" data-make-default>Make catch-all</button>'
+                  }</td>
+                  <td>
+                    <div class="actions">
+                      <button type="button" class="mini-button" data-edit>Edit</button>
+                      ${
+                        z.is_default
+                          ? ''
+                          : '<button type="button" class="mini-button danger" data-delete>Delete</button>'
+                      }
+                    </div>
+                  </td>
+                </tr>`
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>`;
+
+      host.dataset.cache = JSON.stringify(data.zones);
+    }
+
+    function zoneForm(zone) {
+      const isNew = !zone;
+      const z = zone || {
+        name: '', flat_cents: 0, per_item_cents: 0, free_over_cents: 0,
+        delivery_min_days: 14, delivery_max_days: 21, active: 1, sort_order: 0, countries: [],
+      };
+      const chosen = new Set(z.countries || []);
+
+      const modal = openModal(
+        isNew ? 'New shipping zone' : `Edit ${z.name}`,
+        `<form data-zone-form>
+          <label>Zone name <input name="name" value="${escapeHtml(z.name)}" required maxlength="120"></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Base fee <input name="flat" type="number" step="0.01" min="0" value="${dollars(
+              z.flat_cents
+            )}"></label>
+            <label>Per item <input name="perItem" type="number" step="0.01" min="0" value="${dollars(
+              z.per_item_cents
+            )}"></label>
+          </div>
+          <label>Free over <span class="cell-muted">(0 = never free)</span>
+            <input name="freeOver" type="number" step="0.01" min="0" value="${dollars(z.free_over_cents)}">
+          </label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Delivery from (days) <input name="minDays" type="number" min="0" value="${
+              z.delivery_min_days
+            }"></label>
+            <label>Delivery to (days) <input name="maxDays" type="number" min="0" value="${
+              z.delivery_max_days
+            }"></label>
+          </div>
+          <label>Order <input name="sortOrder" type="number" value="${z.sort_order}"></label>
+
+          <p class="cell-muted">Countries in this zone. A country can only be in one zone &mdash; ticking it here removes it from any other.</p>
+          <div class="zone-countries">
+            ${allCountries
+              .map(
+                (c) => `<label><input type="checkbox" name="country" value="${escapeHtml(c.code)}"${
+                  chosen.has(c.code) ? ' checked' : ''
+                }> ${escapeHtml(c.name)}</label>`
+              )
+              .join('')}
+          </div>
+
+          <label class="checkbox-row"><input type="checkbox" name="active" ${
+            z.active ? 'checked' : ''
+          }> Zone is in use</label>
+        </form>`,
+        '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button solid" data-save>Save zone</button>'
+      );
+
+      const form = modal.querySelector('[data-zone-form]');
+
+      modal.querySelector('[data-save]').addEventListener('click', () =>
+        guard(async () => {
+          const v = Object.fromEntries(new FormData(form).entries());
+          if (!String(v.name || '').trim()) throw new Error('Give the zone a name.');
+
+          const body = {
+            name: v.name,
+            flatCents: centsFromInput(v.flat),
+            perItemCents: centsFromInput(v.perItem),
+            freeOverCents: centsFromInput(v.freeOver),
+            deliveryMinDays: Number(v.minDays) || 0,
+            deliveryMaxDays: Number(v.maxDays) || 0,
+            sortOrder: Number(v.sortOrder) || 0,
+            active: Boolean(v.active),
+            countries: Array.from(form.querySelectorAll('[name="country"]:checked')).map((c) => c.value),
+          };
+
+          if (isNew) await api('/api/admin/shipping', { method: 'POST', body });
+          else await api(`/api/admin/shipping/${z.id}`, { method: 'PATCH', body });
+
+          toast(isNew ? 'Zone created.' : 'Zone updated.');
+          closeModal();
+          await load();
+        })
+      );
+    }
+
+    document.querySelector('[data-new-zone]')?.addEventListener('click', () => zoneForm(null));
+
+    host.addEventListener('click', (event) => {
+      const row = event.target.closest('[data-zone]');
+      if (!row) return;
+      const zones = JSON.parse(host.dataset.cache || '[]');
+      const zone = zones.find((x) => String(x.id) === row.dataset.zone);
+      if (!zone) return;
+
+      if (event.target.closest('[data-edit]')) zoneForm(zone);
+
+      if (event.target.closest('[data-make-default]')) {
+        guard(async () => {
+          await api(`/api/admin/shipping/${zone.id}/default`, { method: 'PATCH' });
+          toast(`${zone.name} is now the catch-all.`);
+          await load();
+        });
+      }
+
+      if (event.target.closest('[data-delete]')) {
+        const modal = openModal(
+          'Delete this zone?',
+          `<div class="modal-body"><p>${escapeHtml(
+            zone.name
+          )} will be removed and its ${zone.countries.length} countries will fall to the catch-all zone.</p></div>`,
+          '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button danger" data-confirm-delete>Delete</button>'
+        );
+        modal.querySelector('[data-confirm-delete]').addEventListener('click', () =>
+          guard(async () => {
+            await api(`/api/admin/shipping/${zone.id}`, { method: 'DELETE' });
+            closeModal();
+            toast('Zone deleted.');
+            await load();
+          })
+        );
+      }
+    });
+
+    await load();
+  }
+
+  /* ========================================================================
+     Contact messages
+     ======================================================================== */
+  async function initMessages() {
+    const host = document.querySelector('[data-messages]');
+    const search = document.querySelector('[data-message-search]');
+    let timer = null;
+
+    async function load() {
+      const term = (search?.value || '').trim();
+      host.innerHTML = '<div class="admin-loading">Loading messages...</div>';
+
+      const data = await api(`/api/admin/messages${term ? `?search=${encodeURIComponent(term)}` : ''}`);
+
+      if (!data.messages.length) {
+        host.innerHTML = `<div class="admin-empty">${
+          term ? 'Nothing matches that search.' : 'No messages yet.'
+        }</div>`;
+        return;
+      }
+
+      host.innerHTML = data.messages
+        .map((m) => {
+          const name = [m.firstName, m.lastName].filter(Boolean).join(' ');
+          return `
+          <article class="message-card" data-message="${m.id}">
+            <header>
+              <div>
+                <div class="cell-strong">${escapeHtml(name || 'No name given')}</div>
+                <a class="message-email" href="mailto:${escapeHtml(m.email)}?subject=${encodeURIComponent(
+                  'Re: your message to Lebanon Hockey'
+                )}">${escapeHtml(m.email)}</a>
+              </div>
+              <div class="message-meta">
+                <span class="cell-muted">${escapeHtml(formatDate(m.createdAt))}</span>
+                <button type="button" class="mini-button danger" data-delete-message>Delete</button>
+              </div>
+            </header>
+            <p>${escapeHtml(m.message || '(no message)')}</p>
+          </article>`;
+        })
+        .join('');
+
+      host.dataset.cache = JSON.stringify(data.messages);
+    }
+
+    search?.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => guard(load), 250);
+    });
+
+    host.addEventListener('click', (event) => {
+      const card = event.target.closest('[data-message]');
+      if (!card || !event.target.closest('[data-delete-message]')) return;
+
+      const messages = JSON.parse(host.dataset.cache || '[]');
+      const message = messages.find((m) => String(m.id) === card.dataset.message);
+      if (!message) return;
+
+      const modal = openModal(
+        'Delete this message?',
+        `<div class="modal-body">
+           <p>The message from ${escapeHtml(message.email)} will be removed permanently.</p>
+           <p class="cell-muted">Make sure you have replied or copied anything you need first.</p>
+         </div>`,
+        '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button danger" data-confirm>Delete</button>'
+      );
+
+      modal.querySelector('[data-confirm]').addEventListener('click', () =>
+        guard(async () => {
+          await api(`/api/admin/messages/${message.id}`, { method: 'DELETE' });
+          closeModal();
+          toast('Message deleted.');
+          await load();
+        })
+      );
+    });
+
+    await load();
+  }
+
+  /* ========================================================================
+     Sponsors
+     ======================================================================== */
+  async function initSponsors() {
+    const host = document.querySelector('[data-sponsors-admin]');
+    let tiers = {};
+    let tierOrder = [];
+
+    const assetSrc = (url) => `/${String(url || '').replace(/^\.\//, '')}`;
+
+    async function load() {
+      host.innerHTML = '<div class="admin-loading">Loading sponsors...</div>';
+      const data = await api('/api/admin/sponsors');
+      tiers = data.tiers;
+      tierOrder = data.tierOrder;
+
+      if (!data.sponsors.length) {
+        host.innerHTML = '<div class="admin-empty">No sponsors yet. Use Add sponsor above.</div>';
+        host.dataset.cache = '[]';
+        return;
+      }
+
+      host.innerHTML = `
+        <div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr><th></th><th>Sponsor</th><th>Tier</th><th>Website</th><th>Shown</th><th></th></tr>
+            </thead>
+            <tbody>
+              ${data.sponsors
+                .map(
+                  (s) => `
+                <tr data-sponsor="${s.id}">
+                  <td>${
+                    s.logoUrl
+                      ? `<img class="sponsor-thumb" src="${escapeHtml(assetSrc(s.logoUrl))}" alt="">`
+                      : '<span class="sponsor-thumb is-placeholder">&ndash;</span>'
+                  }</td>
+                  <td>
+                    <div class="cell-strong">${escapeHtml(s.name)}</div>
+                    ${s.blurb ? `<div class="cell-muted">${escapeHtml(s.blurb)}</div>` : ''}
+                  </td>
+                  <td><span class="tier ${escapeHtml(s.tier)}">${escapeHtml(s.tierLabel)}</span></td>
+                  <td class="cell-muted">${
+                    s.websiteUrl
+                      ? `<a href="${escapeHtml(s.websiteUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(
+                          s.websiteUrl.replace(/^https?:\/\//, '')
+                        )}</a>`
+                      : '-'
+                  }</td>
+                  <td>${
+                    s.active
+                      ? '<span class="status-badge is-paid">Shown</span>'
+                      : '<span class="status-badge is-cancelled">Hidden</span>'
+                  }</td>
+                  <td>
+                    <div class="actions">
+                      <button type="button" class="mini-button" data-edit-sponsor>Edit</button>
+                      <button type="button" class="mini-button danger" data-delete-sponsor>Delete</button>
+                    </div>
+                  </td>
+                </tr>`
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>`;
+
+      host.dataset.cache = JSON.stringify(data.sponsors);
+    }
+
+    function sponsorForm(sponsor) {
+      const isNew = !sponsor;
+      const s = sponsor || {
+        name: '', tier: 'bronze', blurb: '', websiteUrl: '', logoUrl: '', logoAlt: '',
+        active: true, sortOrder: 0,
+      };
+
+      const modal = openModal(
+        isNew ? 'Add sponsor' : `Edit ${s.name}`,
+        `<form data-sponsor-form>
+          <label>Name <input name="name" value="${escapeHtml(s.name)}" required maxlength="160"></label>
+
+          <label>Tier
+            <select name="tier">
+              ${tierOrder
+                .map(
+                  (key) =>
+                    `<option value="${escapeHtml(key)}"${
+                      s.tier === key ? ' selected' : ''
+                    }>${escapeHtml(tiers[key] || key)}</option>`
+                )
+                .join('')}
+            </select>
+          </label>
+          <p class="cell-muted">Tier decides the order on the public page: Platinum first, then Gold, Silver, Bronze.</p>
+
+          <label>Description <textarea name="blurb" rows="3" maxlength="600">${escapeHtml(
+            s.blurb
+          )}</textarea></label>
+
+          <label>Website <input name="websiteUrl" value="${escapeHtml(
+            s.websiteUrl
+          )}" maxlength="400" placeholder="example.com"></label>
+
+          <label>Logo <input type="file" accept="image/jpeg,image/png,image/webp" data-logo-input></label>
+          <p class="cell-muted">JPEG, PNG or WebP, up to 4MB. Shown at up to 160&times;64.</p>
+          <div data-logo-preview>${
+            s.logoUrl
+              ? `<img src="${escapeHtml(
+                  assetSrc(s.logoUrl)
+                )}" alt="" style="max-width:160px;border-radius:6px;margin:6px 0">`
+              : ''
+          }</div>
+          <input type="hidden" name="logoUrl" value="${escapeHtml(s.logoUrl)}">
+          <label>Logo description <span class="cell-muted">(for screen readers)</span>
+            <input name="logoAlt" value="${escapeHtml(s.logoAlt)}" maxlength="240">
+          </label>
+
+          <label>Order within the tier <input name="sortOrder" type="number" value="${s.sortOrder}"></label>
+
+          <label class="checkbox-row"><input type="checkbox" name="active" ${
+            s.active ? 'checked' : ''
+          }> Shown on the public site</label>
+        </form>`,
+        '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button solid" data-save>Save sponsor</button>'
+      );
+
+      const form = modal.querySelector('[data-sponsor-form]');
+      const fileInput = modal.querySelector('[data-logo-input]');
+      const preview = modal.querySelector('[data-logo-preview]');
+
+      fileInput?.addEventListener('change', () =>
+        guard(async () => {
+          const file = fileInput.files && fileInput.files[0];
+          if (!file) return;
+
+          preview.innerHTML = '<p class="cell-muted">Uploading...</p>';
+          const result = await api('/api/admin/uploads', {
+            method: 'POST',
+            rawBody: file,
+            contentType: 'application/octet-stream',
+          });
+
+          form.logoUrl.value = result.url;
+          preview.innerHTML = `<img src="${escapeHtml(
+            assetSrc(result.url)
+          )}" alt="" style="max-width:160px;border-radius:6px;margin:6px 0">`;
+          toast('Logo uploaded.');
+        })
+      );
+
+      modal.querySelector('[data-save]').addEventListener('click', () =>
+        guard(async () => {
+          const v = Object.fromEntries(new FormData(form).entries());
+          if (!String(v.name || '').trim()) throw new Error('Give the sponsor a name.');
+
+          const body = {
+            name: v.name,
+            tier: v.tier,
+            blurb: v.blurb,
+            websiteUrl: v.websiteUrl,
+            logoUrl: v.logoUrl,
+            logoAlt: v.logoAlt,
+            sortOrder: Number(v.sortOrder) || 0,
+            active: Boolean(v.active),
+          };
+
+          if (isNew) await api('/api/admin/sponsors', { method: 'POST', body });
+          else await api(`/api/admin/sponsors/${s.id}`, { method: 'PATCH', body });
+
+          closeModal();
+          toast(isNew ? 'Sponsor added.' : 'Sponsor updated.');
+          await load();
+        })
+      );
+    }
+
+    document.querySelector('[data-new-sponsor]')?.addEventListener('click', () => sponsorForm(null));
+
+    host.addEventListener('click', (event) => {
+      const row = event.target.closest('[data-sponsor]');
+      if (!row) return;
+      const sponsors = JSON.parse(host.dataset.cache || '[]');
+      const sponsor = sponsors.find((s) => String(s.id) === row.dataset.sponsor);
+      if (!sponsor) return;
+
+      if (event.target.closest('[data-edit-sponsor]')) sponsorForm(sponsor);
+
+      if (event.target.closest('[data-delete-sponsor]')) {
+        const modal = openModal(
+          'Delete this sponsor?',
+          `<div class="modal-body">
+             <p>${escapeHtml(sponsor.name)} will be removed from the public page.</p>
+             <p class="cell-muted">To take them off the site temporarily, edit the sponsor and untick "Shown on the public site" instead.</p>
+           </div>`,
+          '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button danger" data-confirm>Delete</button>'
+        );
+        modal.querySelector('[data-confirm]').addEventListener('click', () =>
+          guard(async () => {
+            await api(`/api/admin/sponsors/${sponsor.id}`, { method: 'DELETE' });
+            closeModal();
+            toast('Sponsor deleted.');
+            await load();
+          })
+        );
+      }
+    });
+
+    await load();
+  }
+
+  /* ========================================================================
+     Programs and schedule
+     ======================================================================== */
+  async function initPrograms() {
+    const host = document.querySelector('[data-programs-admin]');
+    let kinds = {};
+    let teams = [];
+
+    async function load() {
+      host.innerHTML = '<div class="admin-loading">Loading schedule...</div>';
+      const data = await api('/api/admin/programs');
+      kinds = data.kinds;
+      teams = data.teams;
+
+      if (!data.programs.length) {
+        host.innerHTML = '<div class="admin-empty">Nothing scheduled yet. Use Add entry above.</div>';
+        host.dataset.cache = '[]';
+        return;
+      }
+
+      host.innerHTML = `
+        <div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr><th>Date</th><th>Title</th><th>Type</th><th>Team</th><th>Where</th><th>Shown</th><th></th></tr>
+            </thead>
+            <tbody>
+              ${data.programs
+                .map(
+                  (p) => `
+                <tr data-program="${p.id}">
+                  <td class="cell-muted">${escapeHtml(
+                    p.startsAt
+                      ? formatDate(p.startsAt) +
+                          (p.endsAt && p.endsAt !== p.startsAt ? ` - ${formatDate(p.endsAt)}` : '')
+                      : 'To be announced'
+                  )}</td>
+                  <td class="cell-strong">${escapeHtml(p.title)}</td>
+                  <td>${escapeHtml(p.kindLabel)}</td>
+                  <td class="cell-muted">${escapeHtml(p.teamName || '-')}</td>
+                  <td class="cell-muted">${escapeHtml(p.location || '-')}</td>
+                  <td>${
+                    p.active
+                      ? '<span class="status-badge is-paid">Shown</span>'
+                      : '<span class="status-badge is-cancelled">Hidden</span>'
+                  }</td>
+                  <td>
+                    <div class="actions">
+                      <button type="button" class="mini-button" data-edit-program>Edit</button>
+                      <button type="button" class="mini-button danger" data-delete-program>Delete</button>
+                    </div>
+                  </td>
+                </tr>`
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>`;
+
+      host.dataset.cache = JSON.stringify(data.programs);
+    }
+
+    function programForm(entry) {
+      const isNew = !entry;
+      const p = entry || {
+        title: '', kind: 'program', startsAt: '', endsAt: '', location: '',
+        description: '', linkUrl: '', linkLabel: '', teamId: null, active: true, sortOrder: 0,
+      };
+
+      const modal = openModal(
+        isNew ? 'Add to the schedule' : `Edit ${p.title}`,
+        `<form data-program-form>
+          <label>Title <input name="title" value="${escapeHtml(p.title)}" required maxlength="200"></label>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Type
+              <select name="kind">
+                ${Object.entries(kinds)
+                  .map(
+                    ([key, label]) =>
+                      `<option value="${escapeHtml(key)}"${
+                        p.kind === key ? ' selected' : ''
+                      }>${escapeHtml(label)}</option>`
+                  )
+                  .join('')}
+              </select>
+            </label>
+            <label>Team <span class="cell-muted">(optional)</span>
+              <select name="teamId">
+                <option value="">No team</option>
+                ${teams
+                  .map(
+                    (t) =>
+                      `<option value="${t.id}"${
+                        String(t.id) === String(p.teamId) ? ' selected' : ''
+                      }>${escapeHtml(t.name)}</option>`
+                  )
+                  .join('')}
+              </select>
+            </label>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Starts <input name="startsAt" type="date" value="${escapeHtml(
+              String(p.startsAt || '').slice(0, 10)
+            )}"></label>
+            <label>Ends <span class="cell-muted">(optional)</span>
+              <input name="endsAt" type="date" value="${escapeHtml(String(p.endsAt || '').slice(0, 10))}">
+            </label>
+          </div>
+          <p class="cell-muted">Leave the start date blank for something that is announced but not yet dated. It will appear below the dated entries.</p>
+
+          <label>Where <input name="location" value="${escapeHtml(
+            p.location
+          )}" maxlength="240"></label>
+
+          <label>Description <textarea name="description" rows="4" maxlength="4000">${escapeHtml(
+            p.description
+          )}</textarea></label>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Link <span class="cell-muted">(optional)</span>
+              <input name="linkUrl" value="${escapeHtml(
+                p.linkUrl
+              )}" maxlength="400" placeholder="/teams/youth">
+            </label>
+            <label>Link text <input name="linkLabel" value="${escapeHtml(
+              p.linkLabel
+            )}" maxlength="80" placeholder="More details"></label>
+          </div>
+
+          <label>Order <span class="cell-muted">(only matters between entries sharing a date)</span>
+            <input name="sortOrder" type="number" value="${p.sortOrder}">
+          </label>
+
+          <label class="checkbox-row"><input type="checkbox" name="active" ${
+            p.active ? 'checked' : ''
+          }> Shown on the public events page</label>
+        </form>`,
+        '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button solid" data-save>Save</button>'
+      );
+
+      const form = modal.querySelector('[data-program-form]');
+
+      modal.querySelector('[data-save]').addEventListener('click', () =>
+        guard(async () => {
+          const v = Object.fromEntries(new FormData(form).entries());
+          if (!String(v.title || '').trim()) throw new Error('Give it a title.');
+          if (v.startsAt && v.endsAt && v.endsAt < v.startsAt) {
+            throw new Error('The end date is before the start date.');
+          }
+
+          const body = {
+            title: v.title,
+            kind: v.kind,
+            startsAt: v.startsAt,
+            endsAt: v.endsAt,
+            location: v.location,
+            description: v.description,
+            linkUrl: v.linkUrl,
+            linkLabel: v.linkLabel,
+            teamId: v.teamId === '' ? null : Number(v.teamId),
+            sortOrder: Number(v.sortOrder) || 0,
+            active: Boolean(v.active),
+          };
+
+          if (isNew) await api('/api/admin/programs', { method: 'POST', body });
+          else await api(`/api/admin/programs/${p.id}`, { method: 'PATCH', body });
+
+          closeModal();
+          toast(isNew ? 'Added to the schedule.' : 'Updated.');
+          await load();
+        })
+      );
+    }
+
+    document.querySelector('[data-new-program]')?.addEventListener('click', () => programForm(null));
+
+    host.addEventListener('click', (event) => {
+      const row = event.target.closest('[data-program]');
+      if (!row) return;
+      const programs = JSON.parse(host.dataset.cache || '[]');
+      const entry = programs.find((p) => String(p.id) === row.dataset.program);
+      if (!entry) return;
+
+      if (event.target.closest('[data-edit-program]')) programForm(entry);
+
+      if (event.target.closest('[data-delete-program]')) {
+        const modal = openModal(
+          'Delete this entry?',
+          `<div class="modal-body"><p>${escapeHtml(
+            entry.title
+          )} will be removed from the schedule.</p></div>`,
+          '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button danger" data-confirm>Delete</button>'
+        );
+        modal.querySelector('[data-confirm]').addEventListener('click', () =>
+          guard(async () => {
+            await api(`/api/admin/programs/${entry.id}`, { method: 'DELETE' });
+            closeModal();
+            toast('Removed from the schedule.');
+            await load();
+          })
+        );
+      }
+    });
+
+    await load();
+  }
+
+  /* ========================================================================
+     Teams and players
+     ======================================================================== */
+  async function initTeams() {
+    const filter = document.querySelector('[data-team-filter]');
+    const detailHost = document.querySelector('[data-team-detail]');
+    const playersHost = document.querySelector('[data-team-players]');
+
+    let teams = [];
+    let squads = {};
+    let positions = [];
+    let current = null;
+    let players = [];
+
+    const initials = (name) =>
+      String(name || '')
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0].toUpperCase())
+        .join('');
+
+    /* Uploaded paths are stored as "./uploads/x.jpg" so the public pages can use
+       them relatively; the admin is one directory down, so it needs them rooted. */
+    const assetSrc = (url) => `/${String(url || '').replace(/^\.\//, '')}`;
+
+    function photoField(label, urlValue, altValue, hint) {
+      return `<label>${label}
+          <input type="file" accept="image/jpeg,image/png,image/webp" data-photo-input>
+        </label>
+        <p class="cell-muted">${escapeHtml(hint)}</p>
+        <div data-photo-preview>${
+          urlValue
+            ? `<img src="${escapeHtml(assetSrc(urlValue))}" alt="" style="max-width:200px;border-radius:8px;margin:6px 0">`
+            : ''
+        }</div>
+        <input type="hidden" name="photoUrl" value="${escapeHtml(urlValue || '')}">
+        <label>Photo description <span class="cell-muted">(for screen readers)</span>
+          <input name="photoAlt" value="${escapeHtml(altValue || '')}" maxlength="240">
+        </label>`;
+    }
+
+    /* Shared by both editors: the upload is identical, only the field differs. */
+    function wirePhotoUpload(modal, form) {
+      const input = modal.querySelector('[data-photo-input]');
+      const preview = modal.querySelector('[data-photo-preview]');
+      if (!input) return;
+
+      input.addEventListener('change', () =>
+        guard(async () => {
+          const file = input.files && input.files[0];
+          if (!file) return;
+
+          preview.innerHTML = '<p class="cell-muted">Uploading...</p>';
+          /* Raw bytes, not base64: express.json() ignores octet-stream, so this
+             bypasses the global 256kb limit and is capped by its own route. */
+          const result = await api('/api/admin/uploads', {
+            method: 'POST',
+            rawBody: file,
+            contentType: 'application/octet-stream',
+          });
+
+          form.photoUrl.value = result.url;
+          preview.innerHTML = `<img src="${escapeHtml(
+            assetSrc(result.url)
+          )}" alt="" style="max-width:200px;border-radius:8px;margin:6px 0">`;
+          toast('Photo uploaded.');
+        })
+      );
+    }
+
+    async function loadTeams(preferId) {
+      const data = await api('/api/admin/teams');
+      teams = data.teams;
+      squads = data.squads || {};
+      positions = data.positions || [];
+
+      const keep = preferId || (current && current.id) || (teams[0] && teams[0].id);
+      filter.innerHTML = teams
+        .map(
+          (t) =>
+            `<option value="${t.id}"${String(t.id) === String(keep) ? ' selected' : ''}>${escapeHtml(
+              t.name
+            )} (${t.playerCount})${t.active ? '' : ' - hidden'}</option>`
+        )
+        .join('');
+
+      await loadTeam(keep);
+    }
+
+    async function loadTeam(id) {
+      if (!id) {
+        detailHost.innerHTML = '<div class="admin-empty">No teams yet.</div>';
+        playersHost.innerHTML = '';
+        return;
+      }
+
+      playersHost.innerHTML = '<div class="admin-loading">Loading players...</div>';
+      const data = await api(`/api/admin/teams/${id}/players`);
+      current = data.team;
+      players = data.players;
+
+      renderDetail();
+      renderPlayers();
+    }
+
+    function renderDetail() {
+      const t = current;
+      detailHost.innerHTML = `
+        <div class="team-detail">
+          ${
+            t.photoUrl
+              ? `<img class="team-detail-photo" src="${escapeHtml(assetSrc(t.photoUrl))}" alt="">`
+              : '<span class="team-detail-photo is-placeholder">No team photo</span>'
+          }
+          <div>
+            <h2>${escapeHtml(t.name)}${
+              t.active ? '' : ' <span class="cell-muted">(hidden)</span>'
+            }</h2>
+            ${t.tagline ? `<p class="cell-muted">${escapeHtml(t.tagline)}</p>` : ''}
+            ${t.description ? `<p>${escapeHtml(t.description)}</p>` : ''}
+            <p class="cell-muted">Public page: <a href="/teams/${escapeHtml(
+              t.slug
+            )}" target="_blank" rel="noopener">/teams/${escapeHtml(t.slug)}</a></p>
+            <div class="actions">
+              <button type="button" class="mini-button" data-edit-team>Edit team</button>
+              <button type="button" class="mini-button danger" data-delete-team>Delete team</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderPlayers() {
+      if (!players.length) {
+        playersHost.innerHTML =
+          '<div class="admin-empty">No players on this team yet. Use Add player above.</div>';
+        return;
+      }
+
+      playersHost.innerHTML = `
+        <div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr>
+                <th></th><th>Name</th><th>Squad</th><th>Position</th>
+                <th class="num">#</th><th>Most recent team</th><th>Shown</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${players
+                .map(
+                  (p) => `
+                <tr data-player="${p.id}">
+                  <td>${
+                    p.photoUrl
+                      ? `<img class="player-thumb" src="${escapeHtml(assetSrc(p.photoUrl))}" alt="">`
+                      : `<span class="player-thumb is-placeholder">${escapeHtml(initials(p.name))}</span>`
+                  }</td>
+                  <td class="cell-strong">${escapeHtml(p.name)}</td>
+                  <td class="cell-muted">${escapeHtml(p.squadLabel || '-')}</td>
+                  <td>${escapeHtml(p.positionLabel)}</td>
+                  <td class="num">${p.jerseyNumber ? escapeHtml(String(p.jerseyNumber)) : '-'}</td>
+                  <td class="cell-muted">${escapeHtml(p.recentTeam || '-')}</td>
+                  <td>${
+                    p.active
+                      ? '<span class="status-badge is-paid">Shown</span>'
+                      : '<span class="status-badge is-cancelled">Hidden</span>'
+                  }</td>
+                  <td>
+                    <div class="actions">
+                      <a class="mini-button" href="/players/${escapeHtml(
+                        p.slug
+                      )}" target="_blank" rel="noopener">View</a>
+                      <button type="button" class="mini-button" data-edit-player>Edit</button>
+                      <button type="button" class="mini-button danger" data-delete-player>Delete</button>
+                    </div>
+                  </td>
+                </tr>`
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    /* --- Team editor ------------------------------------------------------ */
+    function teamForm() {
+      const t = current;
+      const modal = openModal(
+        `Edit ${t.name}`,
+        `<form data-team-form>
+          <label>Team name <input name="name" value="${escapeHtml(t.name)}" required maxlength="160"></label>
+          <label>Tagline <input name="tagline" value="${escapeHtml(t.tagline)}" maxlength="200"></label>
+          <label>Description <textarea name="description" rows="5" maxlength="4000">${escapeHtml(
+            t.description
+          )}</textarea></label>
+          <label>Page address <span class="cell-muted">(changing this breaks shared links)</span>
+            <input name="slug" value="${escapeHtml(t.slug)}" maxlength="80">
+          </label>
+          ${photoField('Team photo', t.photoUrl, t.photoAlt, 'JPEG, PNG or WebP, up to 4MB.')}
+          <label>Order <input name="sortOrder" type="number" value="${t.sortOrder}"></label>
+          <label class="checkbox-row"><input type="checkbox" name="active" ${
+            t.active ? 'checked' : ''
+          }> Shown on the public site</label>
+        </form>`,
+        '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button solid" data-save>Save team</button>'
+      );
+
+      const form = modal.querySelector('[data-team-form]');
+      wirePhotoUpload(modal, form);
+
+      modal.querySelector('[data-save]').addEventListener('click', () =>
+        guard(async () => {
+          const v = Object.fromEntries(new FormData(form).entries());
+          if (!String(v.name || '').trim()) throw new Error('Give the team a name.');
+
+          await api(`/api/admin/teams/${t.id}`, {
+            method: 'PATCH',
+            body: {
+              name: v.name,
+              tagline: v.tagline,
+              description: v.description,
+              slug: v.slug,
+              photoUrl: v.photoUrl,
+              photoAlt: v.photoAlt,
+              sortOrder: Number(v.sortOrder) || 0,
+              active: Boolean(v.active),
+            },
+          });
+
+          closeModal();
+          toast('Team updated.');
+          await loadTeams(t.id);
+        })
+      );
+    }
+
+    /* --- Player editor ---------------------------------------------------- */
+    function playerForm(player) {
+      const isNew = !player;
+      const p = player || {
+        name: '', squad: '', position: 'forward', jerseyNumber: '', photoUrl: '', photoAlt: '',
+        bio: '', recentTeam: '', resides: '', hometown: '', active: true, sortOrder: players.length,
+        teamId: current.id, slug: '',
+      };
+
+      const modal = openModal(
+        isNew ? 'Add player' : `Edit ${p.name}`,
+        `<form data-player-form>
+          <label>Full name <input name="name" value="${escapeHtml(p.name)}" required maxlength="160"></label>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Team
+              <select name="teamId">
+                ${teams
+                  .map(
+                    (t) =>
+                      `<option value="${t.id}"${
+                        String(t.id) === String(p.teamId) ? ' selected' : ''
+                      }>${escapeHtml(t.name)}</option>`
+                  )
+                  .join('')}
+              </select>
+            </label>
+            <label>Squad
+              <select name="squad">
+                <option value=""${p.squad ? '' : ' selected'}>No squad</option>
+                ${Object.entries(squads)
+                  .map(
+                    ([key, label]) =>
+                      `<option value="${escapeHtml(key)}"${
+                        p.squad === key ? ' selected' : ''
+                      }>${escapeHtml(label)}</option>`
+                  )
+                  .join('')}
+              </select>
+            </label>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Position
+              <select name="position">
+                ${positions
+                  .map(
+                    (value) =>
+                      `<option value="${escapeHtml(value)}"${
+                        p.position === value ? ' selected' : ''
+                      }>${escapeHtml(value.charAt(0).toUpperCase() + value.slice(1))}</option>`
+                  )
+                  .join('')}
+              </select>
+            </label>
+            <label>Jersey number <input name="number" type="number" min="0" max="99" value="${escapeHtml(
+              p.jerseyNumber == null ? '' : String(p.jerseyNumber)
+            )}"></label>
+          </div>
+
+          ${photoField('Player photo', p.photoUrl, p.photoAlt, 'JPEG, PNG or WebP, up to 4MB. Portrait orientation works best.')}
+
+          <label>Most recent team <input name="recentTeam" value="${escapeHtml(
+            p.recentTeam
+          )}" maxlength="200"></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Resides <input name="resides" value="${escapeHtml(p.resides)}" maxlength="120"></label>
+            <label>Hometown <input name="hometown" value="${escapeHtml(p.hometown)}" maxlength="120"></label>
+          </div>
+
+          <label>Biography <textarea name="bio" rows="5" maxlength="4000">${escapeHtml(
+            p.bio
+          )}</textarea></label>
+
+          <label>Order <input name="sortOrder" type="number" value="${p.sortOrder}"></label>
+
+          <label class="checkbox-row"><input type="checkbox" name="active" ${
+            p.active ? 'checked' : ''
+          }> Shown on the public site</label>
+          <p class="cell-muted">Unticking this removes the player from the team page and from their own profile, everywhere, without deleting the record.</p>
+        </form>`,
+        '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button solid" data-save>Save player</button>'
+      );
+
+      const form = modal.querySelector('[data-player-form]');
+      wirePhotoUpload(modal, form);
+
+      modal.querySelector('[data-save]').addEventListener('click', () =>
+        guard(async () => {
+          const v = Object.fromEntries(new FormData(form).entries());
+          if (!String(v.name || '').trim()) throw new Error("Enter the player's name.");
+
+          const body = {
+            teamId: Number(v.teamId),
+            name: v.name,
+            squad: v.squad,
+            position: v.position,
+            number: v.number === '' ? null : Number(v.number),
+            photoUrl: v.photoUrl,
+            photoAlt: v.photoAlt,
+            bio: v.bio,
+            recentTeam: v.recentTeam,
+            resides: v.resides,
+            hometown: v.hometown,
+            sortOrder: Number(v.sortOrder) || 0,
+            active: Boolean(v.active),
+          };
+
+          if (isNew) await api('/api/admin/players', { method: 'POST', body });
+          else await api(`/api/admin/players/${p.id}`, { method: 'PATCH', body });
+
+          closeModal();
+          toast(isNew ? 'Player added.' : 'Player updated.');
+          await loadTeams(Number(v.teamId));
+        })
+      );
+    }
+
+    /* --- Wiring ----------------------------------------------------------- */
+    filter.addEventListener('change', () => guard(() => loadTeam(filter.value)));
+
+    document
+      .querySelector('[data-new-team-player]')
+      ?.addEventListener('click', () => playerForm(null));
+
+    detailHost.addEventListener('click', (event) => {
+      if (event.target.closest('[data-edit-team]')) teamForm();
+
+      if (event.target.closest('[data-delete-team]')) {
+        const modal = openModal(
+          'Delete this team?',
+          `<div class="modal-body"><p>${escapeHtml(
+            current.name
+          )} will be removed. A team that still has players cannot be deleted - hide it instead.</p></div>`,
+          '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button danger" data-confirm>Delete</button>'
+        );
+        modal.querySelector('[data-confirm]').addEventListener('click', () =>
+          guard(async () => {
+            await api(`/api/admin/teams/${current.id}`, { method: 'DELETE' });
+            closeModal();
+            toast('Team deleted.');
+            current = null;
+            await loadTeams();
+          })
+        );
+      }
+    });
+
+    playersHost.addEventListener('click', (event) => {
+      const row = event.target.closest('[data-player]');
+      if (!row) return;
+      const player = players.find((x) => String(x.id) === row.dataset.player);
+      if (!player) return;
+
+      if (event.target.closest('[data-edit-player]')) playerForm(player);
+
+      if (event.target.closest('[data-delete-player]')) {
+        const modal = openModal(
+          'Delete this player?',
+          `<div class="modal-body">
+             <p>${escapeHtml(player.name)} will be removed completely, including their profile page.</p>
+             <p class="cell-muted">To take a name off the site but keep the record, edit the player and untick "Shown on the public site" instead.</p>
+           </div>`,
+          '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button danger" data-confirm>Delete</button>'
+        );
+        modal.querySelector('[data-confirm]').addEventListener('click', () =>
+          guard(async () => {
+            await api(`/api/admin/players/${player.id}`, { method: 'DELETE' });
+            closeModal();
+            toast('Player deleted.');
+            await loadTeams(current.id);
+          })
+        );
+      }
+    });
+
+    await loadTeams();
+  }
+
+  /* ========================================================================
+     Game sheets
+     ======================================================================== */
+  async function initGames() {
+    const listHost = document.querySelector('[data-games-list]');
+    const sheetHost = document.querySelector('[data-game-sheet]');
+
+    let teams = [];
+    let roles = {};
+    let homeAway = {};
+    let statuses = {};
+    let openGameId = null;
+    let sheet = [];
+    let candidates = { players: [], registrations: [] };
+
+    const dateLabel = (value) => (value ? formatDate(value) : 'Date not set');
+
+    async function loadList() {
+      listHost.innerHTML = '<div class="admin-loading">Loading games...</div>';
+      const data = await api('/api/admin/games');
+      teams = data.teams;
+      roles = data.roles;
+      homeAway = data.homeAway;
+      statuses = data.statuses;
+
+      if (!data.games.length) {
+        listHost.innerHTML =
+          '<div class="admin-empty">No games yet. Use New game to start a sheet.</div>';
+        return;
+      }
+
+      listHost.innerHTML = `
+        <div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Date</th><th>Opponent</th><th>Team</th><th>Venue</th>
+                <th class="num">Score</th><th class="num">Named</th><th>Status</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.games
+                .map(
+                  (g) => `
+                <tr data-game="${g.id}">
+                  <td class="cell-muted">${escapeHtml(dateLabel(g.playedAt))}</td>
+                  <td class="cell-strong">${escapeHtml(g.opponent)}<br>
+                    <span class="cell-muted">${escapeHtml(g.homeAwayLabel)}${
+                      g.competition ? ` &middot; ${escapeHtml(g.competition)}` : ''
+                    }</span></td>
+                  <td>${escapeHtml(g.teamName || '-')}</td>
+                  <td class="cell-muted">${escapeHtml(g.venue || '-')}</td>
+                  <td class="num">${
+                    g.scoreFor === null || g.scoreAgainst === null
+                      ? '-'
+                      : `${escapeHtml(String(g.scoreFor))}&ndash;${escapeHtml(String(g.scoreAgainst))}`
+                  }</td>
+                  <td class="num">${g.lineCount}</td>
+                  <td><span class="status-badge is-${
+                    g.status === 'final' ? 'paid' : g.status === 'cancelled' ? 'cancelled' : 'pending'
+                  }">${escapeHtml(g.statusLabel)}</span></td>
+                  <td>
+                    <div class="actions">
+                      <button type="button" class="mini-button solid" data-open-sheet>Sheet</button>
+                      <button type="button" class="mini-button" data-edit-game>Edit</button>
+                      <button type="button" class="mini-button danger" data-delete-game>Delete</button>
+                    </div>
+                  </td>
+                </tr>`
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>`;
+
+      listHost.dataset.cache = JSON.stringify(data.games);
+    }
+
+    /* --- The sheet itself -------------------------------------------------- */
+    async function loadSheet(id) {
+      openGameId = id;
+      sheetHost.hidden = false;
+      sheetHost.innerHTML = '<div class="admin-loading">Loading sheet...</div>';
+
+      const data = await api(`/api/admin/games/${id}`);
+      sheet = data.sheet;
+      candidates = data.candidates;
+      renderSheet(data.game);
+      sheetHost.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function renderSheet(game) {
+      const total = sheet.length;
+      const linked = sheet.filter((l) => l.membership).length;
+
+      sheetHost.innerHTML = `
+        <div class="sheet-head">
+          <div>
+            <h2>${escapeHtml(game.opponent)} <span class="cell-muted">${escapeHtml(
+              dateLabel(game.playedAt)
+            )}</span></h2>
+            <p class="cell-muted">
+              ${escapeHtml(game.teamName || 'No team set')} &middot; ${escapeHtml(game.homeAwayLabel)}
+              ${game.venue ? ` &middot; ${escapeHtml(game.venue)}` : ''}
+            </p>
+            <p class="cell-muted">${escapeHtml(String(total))} named, ${escapeHtml(
+              String(linked)
+            )} linked to a membership record.</p>
+          </div>
+          <div class="actions">
+            <button type="button" class="mini-button" data-fill-roster>Add whole roster</button>
+            <button type="button" class="mini-button solid" data-add-line>Add person</button>
+            <button type="button" class="mini-button" data-close-sheet>Close</button>
+          </div>
+        </div>
+
+        ${
+          total
+            ? `<div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr>
+                <th class="num">#</th><th>Name</th><th>Position</th><th>Role</th>
+                <th>Membership</th><th>Note</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sheet
+                .map(
+                  (l) => `
+                <tr data-line="${l.id}">
+                  <td class="num">${l.jerseyNumber == null ? '-' : escapeHtml(String(l.jerseyNumber))}</td>
+                  <td class="cell-strong">${escapeHtml(l.name || 'Unnamed')}</td>
+                  <td class="cell-muted">${escapeHtml(l.position || '-')}</td>
+                  <td>${escapeHtml(l.roleLabel)}</td>
+                  <td class="cell-muted">${
+                    l.membership
+                      ? `${escapeHtml(l.membership.email)}${
+                          l.membership.dateOfBirth
+                            ? `<br>born ${escapeHtml(l.membership.dateOfBirth)}`
+                            : ''
+                        }`
+                      : '<span class="cell-muted">Not linked</span>'
+                  }</td>
+                  <td class="cell-muted">${escapeHtml(l.note || '')}</td>
+                  <td>
+                    <div class="actions">
+                      <button type="button" class="mini-button" data-edit-line>Edit</button>
+                      <button type="button" class="mini-button danger" data-remove-line>Remove</button>
+                    </div>
+                  </td>
+                </tr>`
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>`
+            : '<div class="admin-empty">Nobody on this sheet yet.</div>'
+        }`;
+    }
+
+    /* --- Game editor ------------------------------------------------------- */
+    function gameForm(game) {
+      const isNew = !game;
+      const g = game || {
+        opponent: '', playedAt: '', venue: '', competition: '', homeAway: 'home',
+        scoreFor: null, scoreAgainst: null, status: 'draft', notes: '', teamId: null,
+      };
+
+      const modal = openModal(
+        isNew ? 'New game' : `Edit ${g.opponent}`,
+        `<form data-game-form>
+          <label>Opponent <input name="opponent" value="${escapeHtml(
+            g.opponent
+          )}" required maxlength="200"></label>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Date <input name="playedAt" type="date" value="${escapeHtml(
+              String(g.playedAt || '').slice(0, 10)
+            )}"></label>
+            <label>Team
+              <select name="teamId">
+                <option value="">No team</option>
+                ${teams
+                  .map(
+                    (t) =>
+                      `<option value="${t.id}"${
+                        String(t.id) === String(g.teamId) ? ' selected' : ''
+                      }>${escapeHtml(t.name)}</option>`
+                  )
+                  .join('')}
+              </select>
+            </label>
+          </div>
+
+          <label>Venue <input name="venue" value="${escapeHtml(g.venue)}" maxlength="200"></label>
+          <label>Competition <input name="competition" value="${escapeHtml(
+            g.competition
+          )}" maxlength="200"></label>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+            <label>Home or away
+              <select name="homeAway">
+                ${Object.entries(homeAway)
+                  .map(
+                    ([key, label]) =>
+                      `<option value="${escapeHtml(key)}"${
+                        g.homeAway === key ? ' selected' : ''
+                      }>${escapeHtml(label)}</option>`
+                  )
+                  .join('')}
+              </select>
+            </label>
+            <label>Goals for <input name="scoreFor" type="number" min="0" value="${
+              g.scoreFor == null ? '' : escapeHtml(String(g.scoreFor))
+            }"></label>
+            <label>Goals against <input name="scoreAgainst" type="number" min="0" value="${
+              g.scoreAgainst == null ? '' : escapeHtml(String(g.scoreAgainst))
+            }"></label>
+          </div>
+
+          <label>Status
+            <select name="status">
+              ${Object.entries(statuses)
+                .map(
+                  ([key, label]) =>
+                    `<option value="${escapeHtml(key)}"${
+                      g.status === key ? ' selected' : ''
+                    }>${escapeHtml(label)}</option>`
+                )
+                .join('')}
+            </select>
+          </label>
+
+          <label>Notes <textarea name="notes" rows="4" maxlength="4000">${escapeHtml(
+            g.notes
+          )}</textarea></label>
+        </form>`,
+        '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button solid" data-save>Save game</button>'
+      );
+
+      const form = modal.querySelector('[data-game-form]');
+
+      modal.querySelector('[data-save]').addEventListener('click', () =>
+        guard(async () => {
+          const v = Object.fromEntries(new FormData(form).entries());
+          if (!String(v.opponent || '').trim()) throw new Error('Name the opponent.');
+
+          const body = {
+            opponent: v.opponent,
+            playedAt: v.playedAt,
+            venue: v.venue,
+            competition: v.competition,
+            homeAway: v.homeAway,
+            scoreFor: v.scoreFor === '' ? null : Number(v.scoreFor),
+            scoreAgainst: v.scoreAgainst === '' ? null : Number(v.scoreAgainst),
+            status: v.status,
+            notes: v.notes,
+            teamId: v.teamId === '' ? null : Number(v.teamId),
+          };
+
+          if (isNew) await api('/api/admin/games', { method: 'POST', body });
+          else await api(`/api/admin/games/${g.id}`, { method: 'PATCH', body });
+
+          closeModal();
+          toast(isNew ? 'Game created.' : 'Game updated.');
+          await loadList();
+          if (!isNew && openGameId === g.id) await loadSheet(g.id);
+        })
+      );
+    }
+
+    /* --- Adding somebody to a sheet ---------------------------------------- */
+    function addLineForm() {
+      const modal = openModal(
+        'Add to the sheet',
+        `<form data-line-form>
+          <label>From the roster
+            <select name="playerId" data-player-pick>
+              <option value="">Not from the roster</option>
+              ${candidates.players
+                .map(
+                  (p) =>
+                    `<option value="${p.id}" data-number="${
+                      p.jerseyNumber == null ? '' : p.jerseyNumber
+                    }" data-position="${escapeHtml(p.position || '')}">${escapeHtml(p.name)}${
+                      p.jerseyNumber == null ? '' : ` (#${p.jerseyNumber})`
+                    }</option>`
+                )
+                .join('')}
+            </select>
+          </label>
+
+          <label>Membership record <span class="cell-muted">(paid members only)</span>
+            <select name="registrationId" data-member-pick>
+              <option value="">Not linked</option>
+              ${candidates.registrations
+                .map(
+                  (r) =>
+                    `<option value="${r.id}" data-position="${escapeHtml(
+                      r.position || ''
+                    )}" data-name="${escapeHtml(r.name)}">${escapeHtml(r.name)} &mdash; ${escapeHtml(
+                      r.email
+                    )}</option>`
+                )
+                .join('')}
+            </select>
+          </label>
+
+          <p class="cell-muted">Linking both is normal: the roster gives the name and number, the membership record carries the paperwork. Someone who is on neither can still be typed in below.</p>
+
+          <label>Name on the sheet <span class="cell-muted">(leave blank to use the linked record)</span>
+            <input name="name" maxlength="160">
+          </label>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Number <input name="jerseyNumber" type="number" min="0" max="99"></label>
+            <label>Position <input name="position" maxlength="40"></label>
+          </div>
+
+          <label>Role
+            <select name="role">
+              ${Object.entries(roles)
+                .map(
+                  ([key, label]) =>
+                    `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`
+                )
+                .join('')}
+            </select>
+          </label>
+
+          <label>Note <input name="note" maxlength="400"></label>
+        </form>`,
+        '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button solid" data-save>Add</button>'
+      );
+
+      const form = modal.querySelector('[data-line-form]');
+
+      /* Pre-fill from whichever record was picked, so the details the system
+         already holds are never retyped. */
+      form.querySelector('[data-player-pick]').addEventListener('change', (event) => {
+        const option = event.target.selectedOptions[0];
+        if (!option || !option.value) return;
+        if (!form.jerseyNumber.value) form.jerseyNumber.value = option.dataset.number || '';
+        if (!form.position.value) form.position.value = option.dataset.position || '';
+      });
+
+      form.querySelector('[data-member-pick]').addEventListener('change', (event) => {
+        const option = event.target.selectedOptions[0];
+        if (!option || !option.value) return;
+        if (!form.position.value) form.position.value = option.dataset.position || '';
+        if (!form.name.value && !form.playerId.value) form.name.value = option.dataset.name || '';
+      });
+
+      modal.querySelector('[data-save]').addEventListener('click', () =>
+        guard(async () => {
+          const v = Object.fromEntries(new FormData(form).entries());
+          if (!v.playerId && !v.registrationId && !String(v.name || '').trim()) {
+            throw new Error('Pick a player or a member, or type a name.');
+          }
+
+          await api(`/api/admin/games/${openGameId}/sheet`, {
+            method: 'POST',
+            body: {
+              playerId: v.playerId === '' ? null : Number(v.playerId),
+              registrationId: v.registrationId === '' ? null : Number(v.registrationId),
+              name: v.name,
+              jerseyNumber: v.jerseyNumber === '' ? null : Number(v.jerseyNumber),
+              position: v.position,
+              role: v.role,
+              note: v.note,
+            },
+          });
+
+          closeModal();
+          toast('Added to the sheet.');
+          await loadSheet(openGameId);
+          await loadList();
+        })
+      );
+    }
+
+    function editLineForm(line) {
+      const modal = openModal(
+        `Edit ${line.name || 'line'}`,
+        `<form data-line-edit>
+          <label>Name on the sheet <input name="name" value="${escapeHtml(
+            line.name
+          )}" maxlength="160"></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Number <input name="jerseyNumber" type="number" min="0" max="99" value="${
+              line.jerseyNumber == null ? '' : escapeHtml(String(line.jerseyNumber))
+            }"></label>
+            <label>Position <input name="position" value="${escapeHtml(
+              line.position
+            )}" maxlength="40"></label>
+          </div>
+          <label>Role
+            <select name="role">
+              ${Object.entries(roles)
+                .map(
+                  ([key, label]) =>
+                    `<option value="${escapeHtml(key)}"${
+                      line.role === key ? ' selected' : ''
+                    }>${escapeHtml(label)}</option>`
+                )
+                .join('')}
+            </select>
+          </label>
+          <label>Note <input name="note" value="${escapeHtml(line.note)}" maxlength="400"></label>
+          <label>Order <input name="sortOrder" type="number" value="${line.sortOrder}"></label>
+        </form>`,
+        '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button solid" data-save>Save</button>'
+      );
+
+      const form = modal.querySelector('[data-line-edit]');
+
+      modal.querySelector('[data-save]').addEventListener('click', () =>
+        guard(async () => {
+          const v = Object.fromEntries(new FormData(form).entries());
+          await api(`/api/admin/games/${openGameId}/sheet/${line.id}`, {
+            method: 'PATCH',
+            body: {
+              name: v.name,
+              jerseyNumber: v.jerseyNumber === '' ? null : Number(v.jerseyNumber),
+              position: v.position,
+              role: v.role,
+              note: v.note,
+              sortOrder: Number(v.sortOrder) || 0,
+            },
+          });
+
+          closeModal();
+          toast('Line updated.');
+          await loadSheet(openGameId);
+        })
+      );
+    }
+
+    /* --- Wiring ------------------------------------------------------------ */
+    document.querySelector('[data-new-game]')?.addEventListener('click', () => gameForm(null));
+
+    listHost.addEventListener('click', (event) => {
+      const row = event.target.closest('[data-game]');
+      if (!row) return;
+      const games = JSON.parse(listHost.dataset.cache || '[]');
+      const game = games.find((g) => String(g.id) === row.dataset.game);
+      if (!game) return;
+
+      if (event.target.closest('[data-open-sheet]')) guard(() => loadSheet(game.id));
+      if (event.target.closest('[data-edit-game]')) gameForm(game);
+
+      if (event.target.closest('[data-delete-game]')) {
+        const modal = openModal(
+          'Delete this game?',
+          `<div class="modal-body"><p>${escapeHtml(game.opponent)} and everyone named on its sheet will be removed.</p></div>`,
+          '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button danger" data-confirm>Delete</button>'
+        );
+        modal.querySelector('[data-confirm]').addEventListener('click', () =>
+          guard(async () => {
+            await api(`/api/admin/games/${game.id}`, { method: 'DELETE' });
+            closeModal();
+            toast('Game deleted.');
+            if (openGameId === game.id) {
+              sheetHost.hidden = true;
+              openGameId = null;
+            }
+            await loadList();
+          })
+        );
+      }
+    });
+
+    sheetHost.addEventListener('click', (event) => {
+      if (event.target.closest('[data-close-sheet]')) {
+        sheetHost.hidden = true;
+        openGameId = null;
+        return;
+      }
+
+      if (event.target.closest('[data-add-line]')) {
+        addLineForm();
+        return;
+      }
+
+      if (event.target.closest('[data-fill-roster]')) {
+        guard(async () => {
+          const result = await api(`/api/admin/games/${openGameId}/sheet/fill`, { method: 'POST' });
+          toast(
+            result.added
+              ? `Added ${result.added} player${result.added === 1 ? '' : 's'}.`
+              : 'Everyone on the roster is already named.'
+          );
+          await loadSheet(openGameId);
+          await loadList();
+        });
+        return;
+      }
+
+      const row = event.target.closest('[data-line]');
+      if (!row) return;
+      const line = sheet.find((l) => String(l.id) === row.dataset.line);
+      if (!line) return;
+
+      if (event.target.closest('[data-edit-line]')) editLineForm(line);
+
+      if (event.target.closest('[data-remove-line]')) {
+        guard(async () => {
+          await api(`/api/admin/games/${openGameId}/sheet/${line.id}`, { method: 'DELETE' });
+          toast('Removed from the sheet.');
+          await loadSheet(openGameId);
+          await loadList();
+        });
+      }
+    });
+
+    await loadList();
+  }
+
+  /* ========================================================================
      Roster
      ======================================================================== */
   async function initRoster() {
@@ -1352,11 +3059,29 @@
   async function initRegistrations() {
     const statsHost = document.querySelector('[data-registration-stats]');
     const host = document.querySelector('[data-registrations]');
+    const search = document.querySelector('[data-registration-search]');
+    let timer = null;
+
+    /* The exports follow the search, so what downloads is what is on screen -
+       an administrator who has filtered to one family should not get all 400
+       records in the file. */
+    function syncExportLinks() {
+      const term = (search?.value || '').trim();
+      const query = term ? `?search=${encodeURIComponent(term)}` : '';
+      const xlsx = document.querySelector('[data-export-xlsx]');
+      const csv = document.querySelector('[data-export-csv]');
+      if (xlsx) xlsx.href = `/api/admin/registrations.xlsx${query}`;
+      if (csv) csv.href = `/api/admin/registrations.csv${query}`;
+    }
 
     async function load() {
+      const term = (search?.value || '').trim();
       host.innerHTML = '<div class="admin-loading">Loading registrations...</div>';
-      const data = await api('/api/admin/registrations');
+      const data = await api(
+        `/api/admin/registrations${term ? `?search=${encodeURIComponent(term)}` : ''}`
+      );
       const t = data.totals;
+      syncExportLinks();
 
       if (statsHost) {
         statsHost.innerHTML = [
@@ -1480,6 +3205,12 @@
           await load();
         });
       }
+    });
+
+    search?.addEventListener('input', () => {
+      syncExportLinks();
+      clearTimeout(timer);
+      timer = setTimeout(() => guard(load), 250);
     });
 
     await load();
@@ -1881,6 +3612,7 @@
                 <th class="num">Amount</th>
                 <th>Status</th>
                 <th class="num">Charges</th>
+                <th>Leaderboard</th>
                 <th>Date</th>
               </tr>
             </thead>
@@ -1907,6 +3639,28 @@
                   </td>
                   <td>${statusBadge(d.status)}</td>
                   <td class="num">${d.isRecurring ? (d.payments ? d.payments.length : 0) : '-'}</td>
+                  <td data-donation="${d.id}">
+                    ${
+                      d.displayPublicly
+                        ? `<div class="cell-strong">${escapeHtml(d.publicName || d.name || 'No name')}</div>
+                           <div class="cell-muted">${
+                             d.status === 'paid' || d.status === 'active'
+                               ? 'Shown publicly'
+                               : 'Opted in, hidden until paid'
+                           }</div>`
+                        : '<div class="cell-muted">Not listed</div>'
+                    }
+                    <div class="actions">
+                      <button type="button" class="mini-button" data-edit-visibility>${
+                        d.displayPublicly ? 'Edit' : 'Add'
+                      }</button>
+                      ${
+                        d.displayPublicly
+                          ? '<button type="button" class="mini-button danger" data-remove-visibility>Remove</button>'
+                          : ''
+                      }
+                    </div>
+                  </td>
                   <td class="cell-muted">${escapeHtml(formatDate(d.paidAt || d.createdAt))}</td>
                 </tr>`
                 )
@@ -1914,7 +3668,76 @@
             </tbody>
           </table>
         </div>`;
+
+      host.dataset.cache = JSON.stringify(data.donations);
     }
+
+    /* The leaderboard entry only. Nothing here can change the amount, the
+       status or the donor's own record - taking a name off the public page is
+       deliberately not an edit of the gift. */
+    host.addEventListener('click', (event) => {
+      const cell = event.target.closest('[data-donation]');
+      if (!cell) return;
+      const donations = JSON.parse(host.dataset.cache || '[]');
+      const donation = donations.find((d) => String(d.id) === cell.dataset.donation);
+      if (!donation) return;
+
+      if (event.target.closest('[data-remove-visibility]')) {
+        guard(async () => {
+          await api(`/api/admin/donations/${donation.id}/visibility`, {
+            method: 'PATCH',
+            body: { displayPublicly: false, publicName: donation.publicName },
+          });
+          toast('Removed from the leaderboard. The donation is unchanged.');
+          await load();
+        });
+        return;
+      }
+
+      if (event.target.closest('[data-edit-visibility]')) {
+        const modal = openModal(
+          'Leaderboard entry',
+          `<form data-visibility-form>
+            <p class="cell-muted">This changes only how the gift appears on the public leaderboard. The donation itself is not touched.</p>
+            <label>Name to show <span class="cell-muted">(blank uses &ldquo;${escapeHtml(
+              donation.name || 'Anonymous'
+            )}&rdquo;)</span>
+              <input name="publicName" value="${escapeHtml(
+                donation.publicName
+              )}" maxlength="160">
+            </label>
+            <label class="checkbox-row"><input type="checkbox" name="displayPublicly" ${
+              donation.displayPublicly ? 'checked' : ''
+            }> List this gift on the public leaderboard</label>
+            ${
+              donation.status === 'paid' || donation.status === 'active'
+                ? ''
+                : '<p class="cell-muted">This gift is not settled yet, so it stays off the page until it is paid even with this ticked.</p>'
+            }
+          </form>`,
+          '<button type="button" class="mini-button" data-modal-close>Cancel</button><button type="button" class="mini-button solid" data-save>Save</button>'
+        );
+
+        modal.querySelector('[data-save]').addEventListener('click', () =>
+          guard(async () => {
+            const form = modal.querySelector('[data-visibility-form]');
+            const v = Object.fromEntries(new FormData(form).entries());
+
+            await api(`/api/admin/donations/${donation.id}/visibility`, {
+              method: 'PATCH',
+              body: {
+                displayPublicly: Boolean(v.displayPublicly),
+                publicName: v.publicName,
+              },
+            });
+
+            closeModal();
+            toast('Leaderboard entry updated.');
+            await load();
+          })
+        );
+      }
+    });
 
     await load();
   }
@@ -1932,8 +3755,14 @@
     donations: initDonations,
     news: initNews,
     chat: initChat,
+    messages: initMessages,
+    sponsors: initSponsors,
+    programs: initPrograms,
     registrations: initRegistrations,
+    teams: initTeams,
+    games: initGames,
     roster: initRoster,
+    shipping: initShipping,
     content: initContent,
   };
 

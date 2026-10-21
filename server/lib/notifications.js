@@ -50,8 +50,8 @@ export async function sendOrderEmails(orderId) {
     ctaLabel: 'View your order',
     ctaUrl: `${config.appUrl}/order-confirmation.html?order=${order.id}`,
     footNote:
-      `Need to change or return something? Our <a href="${config.appUrl}/refund-policy.html" style="color:#c8102e;">refund policy</a> ` +
-      `gives you 30 days from delivery. Personalized and custom-made items are final sale. ` +
+      `All sales are final &mdash; see our <a href="${config.appUrl}/refund-policy.html" style="color:#c8102e;">refund policy</a>. ` +
+      `If anything arrives faulty, damaged or not what you ordered, tell us within 14 days and we will replace or refund it in full. ` +
       `Questions: <a href="mailto:info@lebanonhockey.com" style="color:#c8102e;">info@lebanonhockey.com</a>.`,
   });
 
@@ -373,4 +373,63 @@ export async function sendRegistrationEmails(registrationId) {
 
   const [applicantResult, adminResult] = await Promise.all([applicant, admin]);
   return { applicant: applicantResult, admin: adminResult };
+}
+
+/**
+ * How to pay an order placed by Interac e-Transfer.
+ *
+ * Sent when the order is created, not when it is paid - this is the message
+ * that tells the buyer what to send and where. The order stays pending until
+ * the transfer lands and the federation marks it paid, at which point
+ * sendOrderEmails() fires the normal confirmation exactly as a card order
+ * would. The two are deliberately separate: this one must not claim the
+ * payment has been received, and that one must not be sent twice.
+ */
+export async function sendEtransferInstructions(orderId) {
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+  if (!order) return null;
+  if (!config.etransferEmail) return null;
+
+  const items = db.prepare('SELECT * FROM order_items WHERE order_id = ? ORDER BY id').all(orderId);
+  const currency = order.currency || config.currency;
+
+  const steps = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="margin:0 0 18px;border:1px solid #e6e4e0;border-radius:10px">
+      <tr>
+        <td style="padding:16px 18px">
+          <p style="margin:0 0 10px;font-weight:700">Send your e-Transfer to</p>
+          <p style="margin:0 0 4px;font-size:18px;font-weight:800">${escapeHtml(config.etransferEmail)}</p>
+          <p style="margin:0 0 14px;color:#6a7178">Recipient name: ${escapeHtml(config.etransferName)}</p>
+
+          <p style="margin:0 0 10px;font-weight:700">Amount</p>
+          <p style="margin:0 0 14px;font-size:18px;font-weight:800">${escapeHtml(
+            formatMoney(order.total_cents, currency)
+          )}</p>
+
+          <p style="margin:0 0 10px;font-weight:700">Put this in the message field</p>
+          <p style="margin:0;font-size:18px;font-weight:800">${escapeHtml(order.order_number)}</p>
+        </td>
+      </tr>
+    </table>`;
+
+  const html = renderEmail({
+    heading: 'Your order is reserved',
+    intro:
+      `Order <strong>${escapeHtml(order.order_number)}</strong> is placed, but it is <strong>not paid yet</strong>. ` +
+      `Send the e-Transfer below and we will confirm as soon as it arrives - usually within a working day.`,
+    bodyHtml: steps + renderOrderTable(order, items) + renderAddress(order),
+    ctaLabel: 'View your order',
+    ctaUrl: `${config.appUrl}/order-confirmation.html?order=${order.id}`,
+    footNote:
+      `Please include the order number ${escapeHtml(order.order_number)} in the transfer message, or we may not be ` +
+      `able to match your payment. Nothing ships until the transfer is received. ` +
+      `Questions: <a href="mailto:info@lebanonhockey.com" style="color:#c8102e;">info@lebanonhockey.com</a>.`,
+  });
+
+  return sendMail({
+    to: order.email,
+    subject: `How to pay order ${order.order_number} - Lebanon Hockey`,
+    html,
+  });
 }

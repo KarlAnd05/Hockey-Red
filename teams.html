@@ -5,15 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta
       name="description"
-      content="Lebanon Hockey's Men's National Team: leadership, achievements, and how to get involved."
+      content="The four teams of the Lebanese Ice Hockey Federation - the women's and men's national programs, the youth program, and the Lebanese Panthers."
     >
-    <title>Men's Program · Lebanon Hockey</title>
+    <title>Our Teams · Lebanon Hockey</title>
     <link rel="icon" href="./assets/LIHF-01_edited.png" type="image/png">
     <link rel="preload" href="./assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="./assets/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="./assets/styles.css">
   </head>
   <body>
+    <svg aria-hidden="true" style="position:absolute; width:0; height:0; overflow:hidden;">
+      <symbol id="cedar-mark" viewBox="0 0 100 100">
+        <polygon points="50,6 38,28 62,28"></polygon>
+        <polygon points="50,20 30,46 70,46"></polygon>
+        <polygon points="50,34 22,66 78,66"></polygon>
+        <rect x="46" y="66" width="8" height="14"></rect>
+        <rect x="18" y="82" width="64" height="5" rx="2.5"></rect>
+      </symbol>
+    </svg>
     <a class="skip-link" href="#main">Skip to content</a>
 
     <div class="flag-strip" aria-hidden="true"></div>
@@ -32,14 +41,12 @@
       <nav id="site-nav" class="site-nav" aria-label="Primary navigation">
         <a href="index.html">Home</a>
         <a href="about.html">About</a>
+        <a href="teams.html" class="is-active">Our Teams</a>
         <a href="news.html">News</a>
-        <a href="mens-program.html" class="is-active">Men's Program</a>
-        <a href="womens-program.html">Women's Program</a>
         <a href="membership.html">Membership</a>
-        <a href="youth-camp.html">Youth Camp</a>
         <a href="events.html">Events</a>
         <a href="sponsors.html">Sponsors</a>
-        <a href="shop.html">Shop</a>
+        <a href="shop.html">Store</a>
       </nav>
       <div class="header-tools">
         <a class="icon-button" data-account-link href="login.html">
@@ -60,68 +67,27 @@
 
     <main id="main">
       <section class="hero page-hero">
-        <div class="hero-media" aria-hidden="true">
-          <img src="./assets/Hero-UltMontreal-shutterstock_1839500569.jpg" alt="">
-        </div>
         <div class="hero-content">
           <div class="hero-badge">
             <span class="dot" aria-hidden="true"></span>
-            <p class="eyebrow">Men's National Team</p>
+            <p class="eyebrow">Our Teams</p>
           </div>
-          <h1>Men's <span class="accent">Program</span></h1>
-          <p>
-            The federation's Men's National Team: international competition
-            under a full coaching staff, with medal finishes at the 2023
-            Kuwait Arab Cup and the 2025 Kazan 3v3 Islamic Tournament.
-          </p>
+          <h1>Our <span class="accent">Teams</span></h1>
+          <p>Four programs carrying Lebanon onto the ice. Pick a team to see its roster.</p>
         </div>
       </section>
 
-      <section class="split-section reveal">
-        <div class="split-copy">
-          <p class="eyebrow">International Play</p>
-          <h2>Representing Lebanon on the international stage</h2>
-          <p>
-            Lebanon's Men's National Team competes internationally under the
-            federation, led by a coaching staff focused on development and
-            competitive results.
-          </p>
-          <div class="program-list">
-            <span>Head Coach: Gregg Kennedy</span>
-            <span>General Manager: Ricardo Tabet</span>
-            <span>2023 Kuwait Arab Cup — Gold</span>
-            <span>2025 3v3 Kazan Islamic Tournament — Bronze</span>
-          </div>
-          <div class="section-cta">
-            <a class="button primary" href="membership.html">Join the Program</a>
-          </div>
-        </div>
-        <div class="image-stack">
-          <img src="./assets/4a228d_aa3745d56b134e89838afc48307a8333~mv2(1).webp" alt="Lebanon Men's National Team on the ice">
-          <img src="./assets/4a228d_b8b05cf3aedc4ec59908e69071874e29~mv2.jpg" alt="Lebanon Hockey team gathering">
-        </div>
-      </section>
-
-
-      <section id="roster" class="section reveal" data-roster-section>
-        <div class="section-heading roster-heading">
-          <div>
-            <p class="eyebrow">Players</p>
-            <h2>Roster</h2>
-          </div>
-          <a class="button primary small" href="membership.html#register">Register to play</a>
-        </div>
-
-        <div class="roster" data-roster data-program="mens"></div>
+      <section class="section reveal">
+        <div class="team-grid" data-teams></div>
       </section>
 
       <section class="impact-section reveal">
         <div>
-          <p class="eyebrow">Questions?</p>
-          <h2>Reach the federation.</h2>
-          <p>Get in touch to learn more about tryouts, schedules, and how to join.</p>
+          <p class="eyebrow">Play For Lebanon</p>
+          <h2>Eligible to wear the cedar?</h2>
+          <p>Register your interest and the federation will be in touch about tryouts and camps.</p>
         </div>
-        <a class="button primary" href="index.html#contact">Contact Us</a>
+        <a class="button primary" href="membership.html">Register</a>
       </section>
     </main>
 
@@ -140,9 +106,7 @@
         <div>
           <h3>Programs</h3>
           <ul class="footer-links">
-            <li><a href="mens-program.html">Men's Program</a></li>
-            <li><a href="womens-program.html">Women's Program</a></li>
-            <li><a href="youth-camp.html">Youth Camp</a></li>
+            <li><a href="teams.html">Our Teams</a></li>
             <li><a href="membership.html">Membership</a></li>
           </ul>
         </div>
@@ -153,10 +117,11 @@
             <li><a href="news.html">News</a></li>
             <li><a href="events.html">Events</a></li>
             <li><a href="sponsors.html">Sponsors</a></li>
+            <li><a href="contact.html">Contact</a></li>
           </ul>
         </div>
         <div>
-          <h3>Shop</h3>
+          <h3>Store</h3>
           <ul class="footer-links">
             <li><a href="shop.html">All products</a></li>
             <li><a href="cart.html">Cart</a></li>
@@ -180,8 +145,8 @@
 
     <script src="./assets/app.js"></script>
 
-    <script src="./assets/roster.js"></script>
-
     <script src="./assets/chat.js"></script>
+
+    <script src="./assets/teams.js"></script>
   </body>
 </html>

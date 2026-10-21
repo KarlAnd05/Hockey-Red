@@ -5,8 +5,9 @@
  * federation can rewrite its own copy from the admin area without touching code.
  *
  * Why overrides live in the database and are applied when the page is served,
- * rather than written back into the .html files: 19 of the 29 pages are GENERATED
- * by scripts/build-store-pages.mjs and scripts/build-admin-pages.mjs. Anything
+ * rather than written back into the .html files: most of the site is GENERATED
+ * by scripts/build-store-pages.mjs and scripts/build-admin-pages.mjs (31 of the
+ * 43 pages at the time of writing). Anything
  * written into those files is destroyed by the next `npm run build`. Serving-time
  * injection survives a rebuild, and the generators stay the single source of
  * truth for structure while the database owns the words.

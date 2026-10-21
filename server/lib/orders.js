@@ -18,8 +18,18 @@ function nextOrderNumber() {
  * Totals come from getCartDetail, which reads prices out of the products table.
  * Nothing the client sent is trusted for pricing.
  */
-export function createPendingOrder({ cartId, userId, email, shipping = {}, discountCode = '' }) {
-  const detail = getCartDetail(cartId, discountCode);
+export function createPendingOrder({
+  cartId,
+  userId,
+  email,
+  shipping = {},
+  discountCode = '',
+  paymentMethod = 'card',
+}) {
+  /* Price against the DESTINATION. Without the country here the order would be
+     costed in the origin zone, so a parcel to Australia would be charged
+     Canadian shipping and the federation would absorb the difference. */
+  const detail = getCartDetail(cartId, discountCode, shipping.country);
 
   if (!detail.items.length) {
     return { error: 'Your cart is empty.' };
@@ -38,9 +48,9 @@ export function createPendingOrder({ cartId, userId, email, shipping = {}, disco
     .prepare(
       `INSERT INTO orders
         (order_number, user_id, email, status, subtotal_cents, discount_cents, shipping_cents,
-         tax_cents, total_cents, currency, discount_code,
+         tax_cents, total_cents, currency, discount_code, payment_method,
          ship_name, ship_line1, ship_line2, ship_city, ship_region, ship_postal, ship_country)
-       VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       orderNumber,
@@ -53,6 +63,7 @@ export function createPendingOrder({ cartId, userId, email, shipping = {}, disco
       detail.totalCents,
       detail.currency,
       detail.discountCode || '',
+      paymentMethod === 'etransfer' ? 'etransfer' : 'card',
       String(shipping.name || '').slice(0, 160),
       String(shipping.line1 || '').slice(0, 200),
       String(shipping.line2 || '').slice(0, 200),
@@ -125,6 +136,11 @@ export async function markOrderPaid(orderId, { paymentIntentId = null, cartId = 
     ).run(order.discount_code);
   }
 
+  /* cartId is the cart the order was actually built from, carried on the Stripe
+     session's metadata by both callers. The fallback below is for an older
+     order that predates that metadata: it clears the signed-in buyer's newest
+     cart, which is a guess, and can empty a basket they started elsewhere.
+     Prefer passing cartId. */
   if (cartId) {
     db.prepare('DELETE FROM cart_items WHERE cart_id = ?').run(cartId);
   } else if (order.user_id) {
@@ -170,6 +186,7 @@ export function serialiseOrder(order, { includeItems = true } = {}) {
     taxCents: order.tax_cents,
     totalCents: order.total_cents,
     currency: order.currency || config.currency,
+    paymentMethod: order.payment_method || 'card',
     createdAt: order.created_at,
     paidAt: order.paid_at,
     shipping: {

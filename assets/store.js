@@ -45,7 +45,7 @@
       'Everything here is real and in stock — we are finishing the payment setup. ' +
       'To order in the meantime, email us what you want and your size and we will invoice you directly.',
     actions:
-      '<a class="button primary small" href="mailto:info@lebanonhockey.com?subject=Shop%20Order">Email your order</a>' +
+      '<a class="button primary small" href="mailto:info@lebanonhockey.com?subject=Store%20Order">Email your order</a>' +
       '<a class="button ghost small" href="donation.html">Support us instead</a>',
   };
 
@@ -61,15 +61,31 @@
       '<a class="button ghost small" href="sponsors.html">See partnership options</a>',
   };
 
+  /* Cards off but e-Transfer on is not a closed store: the visitor can order
+     right now, they just pay a different way. Saying "we cannot take card
+     payments" and nothing else would send them away from a working checkout. */
+  const ETRANSFER_NOTICE = {
+    heading: 'Pay by Interac e-Transfer',
+    body:
+      'Card payments are still being set up, so orders are paid by e-Transfer for now. ' +
+      'Order as normal and we will email you exactly where to send it.',
+    actions: '',
+  };
+
   function renderPaymentsNotice(host, options) {
     if (!host) return;
     const compact = Boolean(options && options.compact);
-    const notice = options && options.donation ? DONATIONS_NOTICE : PAYMENTS_NOTICE;
+    const notice =
+      options && options.etransfer
+        ? ETRANSFER_NOTICE
+        : options && options.donation
+          ? DONATIONS_NOTICE
+          : PAYMENTS_NOTICE;
     host.innerHTML = `
       <div class="notice${compact ? ' is-info' : ''}" role="status">
         <h2>${escapeHtml(notice.heading)}</h2>
         <p>${escapeHtml(notice.body)}</p>
-        <div class="notice-actions">${notice.actions}</div>
+        ${notice.actions ? `<div class="notice-actions">${notice.actions}</div>` : ''}
       </div>`;
   }
 
@@ -83,12 +99,35 @@
     }
   }
 
+  /**
+   * What to say about payments on a page that is not the checkout.
+   *
+   * Three states, not two. "Cards are off" used to imply "you cannot order",
+   * which stopped being true the moment Interac e-Transfer was added: sending
+   * someone to email us instead, past a checkout that works, costs the
+   * federation the order.
+   */
+  async function announcePayments(host, options) {
+    if (!host) return;
+    const [card, etransfer] = await Promise.all([paymentsEnabled(), etransferEnabled()]);
+
+    if (card) return; // nothing to explain
+    renderPaymentsNotice(host, { ...(options || {}), etransfer });
+  }
+
+  async function etransferEnabled() {
+    try {
+      const data = await window.LH.loadSession();
+      return Boolean(data && data.etransferEnabled);
+    } catch {
+      return false; // never offer a payment route we are not sure exists
+    }
+  }
+
   function initShop(root) {
     /* The honest place to mention it is before a cart is built, so the quieter
        is-info variant goes under the shop hero. */
-    paymentsEnabled().then((ok) => {
-      if (!ok) renderPaymentsNotice(root.querySelector('[data-payments-notice]'), { compact: true });
-    });
+    announcePayments(root.querySelector('[data-payments-notice]'), { compact: true });
 
     const grid = root.querySelector('[data-product-grid]');
     const categoryList = root.querySelector('[data-category-filters]');
@@ -244,7 +283,7 @@
         renderPagination(data);
         syncUrl();
       } catch (error) {
-        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><h2>Could not load the shop</h2><p>${escapeHtml(error.message)}</p></div>`;
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><h2>Could not load the store</h2><p>${escapeHtml(error.message)}</p></div>`;
       }
     }
 
@@ -373,7 +412,7 @@
           <div class="empty-state">
             <h1>Product not found</h1>
             <p>${escapeHtml(error.message)}</p>
-            <a class="button primary small" href="shop.html">Back to the shop</a>
+            <a class="button primary small" href="shop.html">Back to the store</a>
           </div>`;
       }
     }
@@ -389,6 +428,10 @@
       const totalStock = hasVariants
         ? product.variants.reduce((sum, v) => sum + v.stock, 0)
         : product.stock;
+
+      /* Sizing advice belongs on garments, not on a puck or a keychain. The
+         variant names are the sizes, so their presence is the test. */
+      const hasSizes = product.variants.some((v) => /^(XS|S|M|L|XL|XXL|\d+)$/i.test(String(v.name).trim()));
 
       root.innerHTML = `
         <nav class="breadcrumb">
@@ -443,10 +486,20 @@
               ${totalStock <= 0 ? 'Sold out' : 'Add to cart'}
             </button>
 
+            ${
+              hasSizes
+                ? `<div class="sizing-note">
+              <h3>Check your size before you order</h3>
+              <p>All sales are final, so sizing is worth a minute. These are made-to-order hockey jerseys and fit looser than a regular shirt &mdash; most people take their normal size. If you are between sizes, or buying for someone else, email <a href="mailto:sales@lebanonhockey.com?subject=Sizing%20question">sales@lebanonhockey.com</a> before ordering and we will send you the measurements for the garment you are looking at.</p>
+            </div>`
+                : ''
+            }
+
             <div class="product-meta">
               <div><strong>Ships from</strong> Greenfield Park, Quebec</div>
+              <div><strong>Delivery</strong> Made to order, usually 2&ndash;3 weeks before it ships</div>
               <div><strong>Supports</strong> Lebanese ice hockey programs</div>
-              <div><strong>Payment</strong> Secure card payment via Stripe</div>
+              <div><strong>Returns</strong> All sales final &mdash; faulty or incorrect items always replaced</div>
             </div>
           </div>
         </div>
@@ -559,6 +612,26 @@
     const opts = options || {};
     const remaining = cart.freeShippingThresholdCents - (cart.subtotalCents - cart.discountCents);
 
+    /* The server echoes back the country it priced against, and it is empty on
+       the cart page because no address has been entered there yet. Saying
+       "Canada, 7-14 days" to a buyer in Sydney would be a quiet lie, so until
+       a country is chosen the figure is labelled an estimate instead. */
+    const priced = Boolean(cart.countryCode);
+    const deliveryWindow =
+      cart.deliveryMinDays && cart.deliveryMaxDays
+        ? cart.deliveryMinDays === cart.deliveryMaxDays
+          ? `${cart.deliveryMaxDays} days`
+          : `${cart.deliveryMinDays}-${cart.deliveryMaxDays} days`
+        : '';
+    const shippingNote = !cart.count
+      ? ''
+      : priced
+        ? [cart.shippingZone, deliveryWindow]
+            .filter(Boolean)
+            .map((part) => escapeHtml(String(part)))
+            .join(' &middot; ')
+        : 'Estimate &mdash; enter your country at checkout for the exact rate';
+
     host.innerHTML = `
       <h2>Order summary</h2>
 
@@ -570,6 +643,7 @@
             : ''
         }
         <div class="summary-row"><span>Shipping</span><strong>${cart.shippingCents === 0 ? 'Free' : money(cart.shippingCents, cart.currency)}</strong></div>
+        ${shippingNote ? `<p class="summary-note">${shippingNote}</p>` : ''}
         ${cart.taxCents > 0 ? `<div class="summary-row"><span>Tax</span><strong>${money(cart.taxCents, cart.currency)}</strong></div>` : ''}
       </div>
 
@@ -612,9 +686,7 @@
     let discount = storedDiscount();
 
     // Say it here, before anyone is sent to fill in a shipping address.
-    paymentsEnabled().then((ok) => {
-      if (!ok) renderPaymentsNotice(root.querySelector('[data-payments-notice]'));
-    });
+    announcePayments(root.querySelector('[data-payments-notice]'));
 
     async function load() {
       try {
@@ -638,7 +710,7 @@
           <div class="empty-state">
             <h2>Your cart is empty</h2>
             <p>Browse the official collection and support Lebanese ice hockey.</p>
-            <a class="button primary small" href="shop.html">Go to the shop</a>
+            <a class="button primary small" href="shop.html">Go to the store</a>
           </div>`;
         if (summaryHost) summaryHost.innerHTML = '';
         cartChanged();
@@ -764,10 +836,32 @@
     const summaryHost = root.querySelector('[data-checkout-summary]');
     const statusEl = root.querySelector('[data-checkout-status]');
     const discount = storedDiscount();
+    const countrySelect = root.querySelector('[data-country-select]');
+
+    /* Built from the server's own list so a code here always matches a shipping
+       zone. Changing it re-quotes before payment, which is the whole point. */
+    async function loadCountries() {
+      if (!countrySelect) return;
+      try {
+        const data = await api('/api/checkout/countries');
+        countrySelect.insertAdjacentHTML(
+          'beforeend',
+          data.countries
+            .map((c) => `<option value="${escapeHtml(c.code)}">${escapeHtml(c.name)}</option>`)
+            .join('')
+        );
+        if (data.origin) countrySelect.value = data.origin;
+      } catch {
+        /* Leave the placeholder; the server still prices the order correctly. */
+      }
+    }
 
     async function loadSummary() {
       try {
-        const cart = await api(`/api/checkout/summary?discount=${encodeURIComponent(discount)}`);
+        const country = countrySelect?.value || '';
+        const cart = await api(
+          `/api/checkout/summary?discount=${encodeURIComponent(discount)}&country=${encodeURIComponent(country)}`
+        );
 
         if (!cart.items.length) {
           window.location.href = 'cart.html';
@@ -823,8 +917,71 @@
       if (statusEl) statusEl.textContent = '';
     }
 
-    paymentsEnabled().then((ok) => {
-      if (!ok) closeCheckout();
+    /* After an e-Transfer order: replace the form with what to send and where.
+       The order exists and is reserved, but it is NOT paid, and the wording
+       has to keep saying so - the buyer still has to do something. */
+    function renderEtransferInstructions(result) {
+      const i = result.instructions;
+      form.hidden = true;
+      const secure = root.querySelector('[data-secure-note]');
+      if (secure) secure.hidden = true;
+
+      const host = root.querySelector('[data-payments-notice]');
+      if (!host) return;
+
+      host.innerHTML = `
+        <div class="notice" role="status">
+          <h2>Order ${escapeHtml(i.reference)} is reserved</h2>
+          <p>It is not paid yet. Send an Interac e-Transfer with the details below and we will confirm as soon as it arrives &mdash; usually within a working day. We have emailed you a copy.</p>
+          <dl class="etransfer-details">
+            <div><dt>Send to</dt><dd>${escapeHtml(i.email)}</dd></div>
+            <div><dt>Recipient name</dt><dd>${escapeHtml(i.name)}</dd></div>
+            <div><dt>Amount</dt><dd>${escapeHtml(money(i.amountCents, i.currency))}</dd></div>
+            <div><dt>Message field</dt><dd>${escapeHtml(i.reference)}</dd></div>
+          </dl>
+          <p class="etransfer-warning">Please put <strong>${escapeHtml(
+            i.reference
+          )}</strong> in the transfer message. Without it we may not be able to match your payment to this order.</p>
+          <div class="notice-actions">
+            <a class="button primary small" href="order-confirmation.html?order=${encodeURIComponent(
+              result.orderId
+            )}">View your order</a>
+            <a class="button ghost small" href="shop.html">Back to the store</a>
+          </div>
+        </div>`;
+
+      host.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    /* Which ways to pay are actually live decides what the form shows - and
+       whether it stays open at all. Cards off but e-Transfer on is a working
+       store, not a closed one, so closeCheckout() must not fire there. */
+    Promise.all([paymentsEnabled(), etransferEnabled()]).then(([card, etransfer]) => {
+      const methods = form?.querySelector('[data-pay-methods]');
+      const cardRadio = form?.querySelector('[name="method"][value="card"]');
+      const etransferRadio = form?.querySelector('[name="method"][value="etransfer"]');
+
+      if (!card && !etransfer) {
+        closeCheckout();
+        return;
+      }
+
+      if (card && etransfer && methods) {
+        methods.hidden = false;
+        return;
+      }
+
+      /* Only one way to pay: pick it silently rather than showing a choice of
+         one. The hidden radio still carries the value on submit. */
+      if (!card && etransfer) {
+        if (etransferRadio) etransferRadio.checked = true;
+        if (cardRadio) cardRadio.disabled = true;
+        renderPaymentsNotice(root.querySelector('[data-payments-notice]'), { etransfer: true });
+        const secure = root.querySelector('[data-secure-note]');
+        if (secure) secure.hidden = true;
+        const submit = form?.querySelector('[data-checkout-submit]');
+        if (submit) submit.textContent = 'Place order';
+      }
     });
 
     form?.addEventListener('submit', async (event) => {
@@ -834,12 +991,22 @@
       const payload = Object.fromEntries(new FormData(form).entries());
       payload.discountCode = discount;
 
+      const payingByTransfer = payload.method === 'etransfer';
+
       submit.disabled = true;
-      submit.textContent = 'Redirecting to payment...';
+      submit.textContent = payingByTransfer ? 'Placing your order...' : 'Redirecting to payment...';
       if (statusEl) statusEl.textContent = '';
 
       try {
         const result = await api('/api/checkout', { method: 'POST', body: payload });
+
+        /* e-Transfer finishes here instead of on Stripe: there is nowhere to
+           redirect to, so the instructions are shown in place. */
+        if (result.method === 'etransfer') {
+          setStoredDiscount('');
+          renderEtransferInstructions(result);
+          return;
+        }
 
         if (result.url) {
           setStoredDiscount('');
@@ -862,11 +1029,15 @@
         }
         toast(error.message, 'error');
         submit.disabled = false;
-        submit.textContent = 'Pay securely';
+        submit.textContent = payingByTransfer ? 'Place order' : 'Pay securely';
       }
     });
 
-    loadSummary();
+    /* Re-quote whenever the destination changes, so the shipping line and the
+       total on screen are always the ones that will be charged. */
+    countrySelect?.addEventListener('change', () => loadSummary());
+
+    loadCountries().then(loadSummary);
   }
 
   /* ========================================================================
@@ -878,7 +1049,7 @@
     let attempts = 0;
 
     if (!orderId) {
-      root.innerHTML = '<div class="empty-state"><h1>No order specified</h1><a class="button primary small" href="shop.html">Back to the shop</a></div>';
+      root.innerHTML = '<div class="empty-state"><h1>No order specified</h1><a class="button primary small" href="shop.html">Back to the store</a></div>';
       return;
     }
 
@@ -963,7 +1134,7 @@
 
         renderOrder(data.order);
       } catch (error) {
-        root.innerHTML = `<div class="empty-state"><h1>Could not load that order</h1><p>${escapeHtml(error.message)}</p><a class="button primary small" href="shop.html">Back to the shop</a></div>`;
+        root.innerHTML = `<div class="empty-state"><h1>Could not load that order</h1><p>${escapeHtml(error.message)}</p><a class="button primary small" href="shop.html">Back to the store</a></div>`;
       }
     }
 
@@ -982,6 +1153,13 @@
     const customInput = form?.querySelector('[name="customAmount"]');
     const coverFee = form?.querySelector('[data-cover-fee]');
     const feeLabel = form?.querySelector('[data-fee-label]');
+    const displayPublicly = form?.querySelector('[data-display-publicly]');
+    const emailInput = form?.querySelector('[data-donate-email]');
+    const emailHint = form?.querySelector('[data-email-hint]');
+    /* Page-level, not part of the form: the leaderboard is its own section
+       outside the [data-page] root this controller is scoped to. */
+    const leaderboardSection = document.querySelector('[data-leaderboard-section]');
+    const leaderboardHost = document.querySelector('[data-leaderboard]');
 
     let settings = null;
     let chosenCents = 0;
@@ -1000,6 +1178,46 @@
       feeLabel.textContent = fee
         ? `Also add ${money(fee, settings.currency)} so the federation receives the full ${money(chosenCents, settings.currency)}`
         : 'Also cover the transaction fee';
+    }
+
+    /* A monthly gift must carry an email: the only way a donor can stop it is
+       the manage link that gets sent there. A one-time gift has nothing to
+       cancel, so the field stays optional. */
+    function refreshEmailRequirement() {
+      if (!emailInput) return;
+      const monthly = form.querySelector('[name="kind"]:checked')?.value === 'monthly';
+
+      emailInput.required = monthly;
+      if (emailHint) {
+        emailHint.textContent = monthly ? '(required for monthly gifts)' : '(optional)';
+      }
+    }
+
+    function renderLeaderboard(data) {
+      if (!leaderboardHost || !leaderboardSection) return;
+      const entries = (data && data.entries) || [];
+      if (!entries.length) return;
+
+      leaderboardSection.hidden = false;
+      leaderboardHost.innerHTML = `
+        <ol class="leaderboard">
+          ${entries
+            .map(
+              (entry, i) => `
+            <li class="leaderboard-row">
+              <span class="leaderboard-rank">${i + 1}</span>
+              <span class="leaderboard-name">${escapeHtml(entry.name)}${
+                entry.kind === 'monthly'
+                  ? ' <span class="leaderboard-tag">Monthly</span>'
+                  : ''
+              }</span>
+              <span class="leaderboard-amount">${escapeHtml(
+                money(entry.amountCents, entry.currency)
+              )}</span>
+            </li>`
+            )
+            .join('')}
+        </ol>`;
     }
 
     function selectAmount(cents, { fromCustom = false } = {}) {
@@ -1043,9 +1261,9 @@
               settled
                 ? `Your ${d.isRecurring ? 'monthly gift of ' : 'gift of '}${escapeHtml(
                     money(d.totalCents, d.currency)
-                  )}${d.isRecurring ? ' is set up' : ' has been received'}. A confirmation is on its way to ${escapeHtml(
-                    d.email
-                  )}.`
+                  )}${d.isRecurring ? ' is set up' : ' has been received'}.${
+                    d.email ? ` A confirmation is on its way to ${escapeHtml(d.email)}.` : ''
+                  }`
                 : `We have your gift and are waiting on the payment provider to confirm it. Status: ${escapeHtml(d.status)}.`
             }</p>
             ${
@@ -1105,8 +1323,21 @@
       }
 
       selectAmount(settings.suggestedCents[1] ?? settings.suggestedCents[0]);
+      refreshEmailRequirement();
       if (!settings.paymentsEnabled) closeDonations();
+
+      /* The leaderboard is its own request and its own failure: an empty or
+         broken one must not stop somebody donating. */
+      try {
+        renderLeaderboard(await api('/api/donate/leaderboard'));
+      } catch {
+        /* leave the section hidden */
+      }
     })();
+
+    form?.querySelectorAll('[name="kind"]').forEach((radio) => {
+      radio.addEventListener('change', refreshEmailRequirement);
+    });
 
     amountHost?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-cents]');
@@ -1148,6 +1379,8 @@
             message: values.message,
             amountCents: chosenCents,
             coverFee: Boolean(coverFee?.checked),
+            displayPublicly: Boolean(displayPublicly?.checked),
+            publicName: values.name,
           },
         });
 

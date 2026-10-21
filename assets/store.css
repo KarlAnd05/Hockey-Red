@@ -744,6 +744,15 @@
   color: var(--ok);
 }
 
+/* Sits directly under the Shipping row as its explanation, so it gives up most
+   of the grid gap above it rather than reading as a row of its own. */
+.summary-note {
+  margin: -8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
 .summary-total {
   display: flex;
   align-items: baseline;
@@ -1367,4 +1376,135 @@
   background: var(--soft);
   font-size: 14px !important;
   color: var(--muted) !important;
+}
+
+/* ==========================================================================
+   Paying by Interac e-Transfer
+   ========================================================================== */
+.pay-methods {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 var(--s-4);
+  padding: 0;
+  border: 0;
+}
+
+.pay-methods legend {
+  padding: 0;
+  margin-bottom: 10px;
+  color: var(--ink-deep);
+  font-weight: 800;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pay-method {
+  display: flex;
+  align-items: start;
+  gap: 11px;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+.pay-method:has(input:checked) {
+  border-color: var(--red);
+  box-shadow: inset 0 0 0 1px var(--red);
+}
+
+.pay-method input {
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--red);
+}
+
+.pay-method strong {
+  display: block;
+  font-size: 15px;
+  color: var(--ink-deep);
+}
+
+.pay-method small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.etransfer-details {
+  display: grid;
+  gap: 0;
+  margin: var(--s-4) 0;
+  border-top: 1px solid var(--line);
+}
+
+.etransfer-details > div {
+  display: grid;
+  grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.etransfer-details dt {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  align-self: center;
+}
+
+.etransfer-details dd {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.etransfer-warning {
+  color: var(--warn);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+@media (max-width: 520px) {
+  .etransfer-details > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}
+
+/* Sizing advice on a made-to-order garment, where all sales are final. */
+.sizing-note {
+  margin: var(--s-4) 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--red);
+  border-radius: var(--radius-sm);
+  background: var(--soft);
+}
+
+.sizing-note h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.sizing-note p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.6;
 }

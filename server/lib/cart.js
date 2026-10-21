@@ -1,5 +1,6 @@
 import { db } from '../db.js';
 import { config } from '../config.js';
+import { quoteShipping } from './shipping.js';
 import { discountAmount, isDiscountUsable } from './money.js';
 
 /**
@@ -99,9 +100,10 @@ export function mergeGuestCart(sessionHash, userId) {
  *
  * Every price here is read from the products/variants tables at call time. The
  * client never supplies a price, so a tampered request cannot change what is
- * charged.
+ * charged. The same now applies to shipping: the caller passes a destination
+ * country, never a shipping figure, and lib/shipping.js decides the charge.
  */
-export function getCartDetail(cartId, discountCode = '') {
+export function getCartDetail(cartId, discountCode = '', countryCode = '') {
   const rows = cartId
     ? db
         .prepare(
@@ -161,10 +163,15 @@ export function getCartDetail(cartId, discountCode = '') {
 
   const afterDiscount = subtotalCents - discountCents;
 
-  const shippingCents =
-    count === 0 || afterDiscount >= config.freeShippingThresholdCents
-      ? 0
-      : config.shippingFlatCents;
+  /* Shipping is worked out from the destination, not a flat rate. With no zones
+     configured this returns exactly what the old flat calculation returned, so
+     the shop behaves identically until the federation sets zones up. */
+  const shipping = quoteShipping({
+    countryCode,
+    afterDiscountCents: afterDiscount,
+    itemCount: count,
+  });
+  const shippingCents = shipping.cents;
 
   const taxCents = Math.round(afterDiscount * config.taxRate);
   const totalCents = afterDiscount + shippingCents + taxCents;
@@ -180,7 +187,13 @@ export function getCartDetail(cartId, discountCode = '') {
     taxCents,
     totalCents,
     currency: config.currency,
-    freeShippingThresholdCents: config.freeShippingThresholdCents,
+    /* Zone-aware, so the cart and checkout can both say "spend X more for free
+       shipping" using the threshold that actually applies to this destination. */
+    freeShippingThresholdCents: shipping.freeOverCents,
+    shippingZone: shipping.zoneName,
+    deliveryMinDays: shipping.minDays,
+    deliveryMaxDays: shipping.maxDays,
+    countryCode: String(countryCode || '').toUpperCase(),
   };
 }
 

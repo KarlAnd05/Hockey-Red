@@ -50,10 +50,6 @@ export const config = {
   etransferName: process.env.ETRANSFER_NAME || 'Lebanese Ice Hockey Federation',
 
   /* --- Donations -------------------------------------------------------- */
-  // Stripe's published Canadian card rate. Kept here so a pricing change is one
-  // edit rather than a hunt through the donation code.
-  stripeFeePercent: Number(process.env.STRIPE_FEE_PERCENT || 0.029),
-  stripeFeeFixedCents: Number(process.env.STRIPE_FEE_FIXED_CENTS || 30),
   // Reused for every monthly gift so the Stripe dashboard does not collect one
   // Product per subscriber. Created on first use and cached in app_meta when
   // this is left empty.

@@ -1508,3 +1508,56 @@
   font-size: 13.5px;
   line-height: 1.6;
 }
+
+/* ==========================================================================
+   Jersey size guide
+   ========================================================================== */
+.sizing-note h4 {
+  margin: var(--s-5) 0 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-deep);
+}
+
+.size-table {
+  font-size: 13.5px;
+}
+
+.size-table td {
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* The measurement name is a row header, so it carries the weight and stays
+   left-aligned while the figures centre under their size. */
+.size-table .size-measure {
+  text-align: left;
+  font-weight: 700;
+  white-space: normal;
+  min-width: 140px;
+}
+
+.sizing-actions {
+  margin: var(--s-4) 0 10px;
+}
+
+.sizing-help {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* Below the roster-table breakpoint each row becomes a stacked card, where a
+   centred figure beside its label reads badly. */
+@media (max-width: 720px) {
+  .size-table td {
+    text-align: right;
+  }
+
+  .size-table .size-measure {
+    min-width: 0;
+  }
+}

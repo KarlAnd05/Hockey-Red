@@ -15,30 +15,6 @@ import { db } from '../db.js';
 import { config } from '../config.js';
 import { formatMoney } from './money.js';
 
-/* --- The fee top-up -------------------------------------------------------
-   A donor who opts to "cover the fees" expects the federation to receive the
-   amount they picked. Charging amount x 2.9% does not achieve that: it ignores
-   the fixed per-transaction fee, and it ignores the fee charged on the top-up
-   itself. Solving for the total that nets the intended amount:
-
-       total = (amount + fixed) / (1 - percent)
-
-   On a $20 gift at 2.9% + $0.30 that is $20.91, so the fee shown is $0.91.
-   Rounding up by a cent, never down, so the federation is never left short. */
-export function feeForAmount(amountCents) {
-  const amount = Math.max(0, Math.round(Number(amountCents) || 0));
-  if (amount === 0) return 0;
-
-  const total = Math.ceil((amount + config.stripeFeeFixedCents) / (1 - config.stripeFeePercent));
-  return Math.max(0, total - amount);
-}
-
-/** What the donor is actually charged, given whether they opted into the fee. */
-export function totalForAmount(amountCents, coverFee) {
-  const amount = Math.max(0, Math.round(Number(amountCents) || 0));
-  return coverFee ? amount + feeForAmount(amount) : amount;
-}
-
 export function validateAmount(amountCents) {
   const amount = Math.round(Number(amountCents) || 0);
   if (!Number.isFinite(amount) || amount <= 0) return 'Choose an amount to give.';
@@ -63,13 +39,16 @@ export function createPendingDonation({
   name,
   message,
   amountCents,
-  coverFee,
   displayPublicly = false,
   publicName = '',
 }) {
   const amount = Math.round(Number(amountCents) || 0);
-  const fee = coverFee ? feeForAmount(amount) : 0;
-  const total = amount + fee;
+  /* The federation decided not to ask donors to cover Stripe's cut, so a gift
+     is charged at exactly the amount chosen. fee_cents stays in the schema and
+     stays zero: dropping the column would erase the record of the gifts that
+     did carry a fee while the option existed. */
+  const fee = 0;
+  const total = amount;
   const manageToken = randomBytes(32).toString('hex');
 
   const info = db

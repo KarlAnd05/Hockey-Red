@@ -8,6 +8,12 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
+/* The federation's crest. The filename is historical - the file is now the
+   supplied 810x630 transparent master (LIHF-02), not the 95x79 crop it was
+   named for. Kept under the old name because it is referenced on every page,
+   in both generators and by the favicon route, and renaming buys nothing. */
+const LOGO = './assets/LIHF-01_edited.png';
+
 const NAV = [
   ['index.html', 'Home'],
   ['about.html', 'About'],

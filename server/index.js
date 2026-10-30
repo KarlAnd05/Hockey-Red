@@ -6,6 +6,7 @@ import { seedShippingZones } from './lib/shipping.js';
 import { seedTeams, migrateRosterToPlayers } from './lib/teams.js';
 import { seedSponsors } from './lib/sponsors.js';
 import { mergeProgramPages } from './lib/merge-programs.js';
+import { seedRecaps } from './lib/seed-recaps.js';
 import { purgeExpiredSessions } from './middleware/auth.js';
 import { syncAllPages } from './lib/content.js';
 
@@ -21,6 +22,8 @@ const migratedPlayers = migrateRosterToPlayers();
 const seededSponsors = seedSponsors();
 /* Must run after seedTeams: it writes into the team rows. */
 const mergedPrograms = mergeProgramPages();
+/* After mergeProgramPages: it reads the descriptions that step writes. */
+const recapChanges = seedRecaps();
 
 /* Re-read every public page so the admin content editor matches what is on disk.
    Runs on each boot, which is what keeps `npm run build` and the editor in step. */
@@ -45,6 +48,7 @@ const server = app.listen(config.port, '127.0.0.1', () => {
   if (seededTeams) console.log(`  seeded  ${seededTeams} teams`);
   if (seededSponsors) console.log(`  seeded  ${seededSponsors} sponsors`);
   if (mergedPrograms) console.log(`  merged  ${mergedPrograms} programme pages into Our Teams`);
+  if (recapChanges) console.log(`  applied ${recapChanges} updates from the 2025/2026 recaps`);
   if (migratedPlayers) console.log(`  moved   ${migratedPlayers} roster players into team profiles`);
   console.log(
     `  content ${content.blocks} editable text blocks across ${content.pages} pages` +

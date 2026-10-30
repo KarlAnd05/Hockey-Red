@@ -124,6 +124,98 @@
     }
   }
 
+  /* ========================================================================
+     Jersey size guide
+     ------------------------------------------------------------------------
+     Transcribed from the federation's supplier sheet (CSG Custom Vintage
+     Jersey). All measurements in inches.
+
+     On the page rather than only in the PDF because this is the last thing a
+     buyer checks before paying, usually on a phone, and all sales are final -
+     asking them to download a two-page PDF to find out whether they are a
+     Medium is how you sell somebody the wrong jersey.
+
+     Two quirks are the supplier's own and are reproduced exactly rather than
+     "corrected": Chest and Bottom Front carry the same figures, and so do
+     Front Length and Back Length. Guessing at what they meant on a chart that
+     cannot be returned against would be worse than printing what they sent.
+     ======================================================================== */
+  const JERSEY_SIZES = {
+    youth: {
+      label: 'Youth sizes',
+      columns: ['Small', 'Medium', 'Large', 'X-Large', 'Goalie'],
+      rows: [
+        ['Chest', '19', '20', '21', '22', '24'],
+        ['Bottom front', '19', '20', '21', '22', '24'],
+        ['Front circumference', '38', '40', '42', '44', '48'],
+        ['Front length', '22', '23½', '25', '26½', '28'],
+        ['Back length (from centre back)', '22', '23½', '25', '26½', '28'],
+        ['Arm length', '25', '26½', '28', '29½', '27½'],
+        ['Upper arm', '8½', '9', '9½', '10', '13'],
+        ['Cuff opening', '5¼', '5½', '5¾', '6', '7'],
+      ],
+    },
+    adult: {
+      label: 'Adult sizes',
+      columns: ['Small', 'Medium', 'Large', 'X-Large', 'XX-Large', 'XXL Goalie'],
+      rows: [
+        ['Chest', '24', '25', '27', '29', '31', '31'],
+        ['Bottom front', '24', '25', '27', '29', '31', '31'],
+        ['Front circumference', '48', '50', '54', '58', '62', '62'],
+        ['Front length', '30', '31', '32', '33', '34', '34'],
+        ['Back length (from centre back)', '30', '31', '32', '33', '34', '34'],
+        ['Arm length', '31', '32', '33½', '35', '36½', '34'],
+        ['Upper arm', '11', '11½', '12', '12½', '13', '14½'],
+        ['Cuff opening', '6¼', '6½', '6¾', '7', '7¼', '8'],
+      ],
+    },
+  };
+
+  function sizeTable(group) {
+    return `
+            <h4>${escapeHtml(group.label)}</h4>
+            <div class="table-scroll">
+              <table class="roster-table size-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Measurement</th>
+                    ${group.columns.map((c) => `<th scope="col">${escapeHtml(c)}</th>`).join('')}
+                  </tr>
+                </thead>
+                <tbody>
+                  ${group.rows
+                    .map(
+                      (row) => `
+                  <tr>
+                    <th scope="row" class="size-measure">${escapeHtml(row[0])}</th>
+                    ${row
+                      .slice(1)
+                      .map(
+                        (v, i) =>
+                          `<td data-label="${escapeHtml(group.columns[i])}">${escapeHtml(v)}&Prime;</td>`
+                      )
+                      .join('')}
+                  </tr>`
+                    )
+                    .join('')}
+                </tbody>
+              </table>
+            </div>`;
+  }
+
+  function sizeGuide() {
+    return `<div class="sizing-note">
+              <h3>Check your size before you order</h3>
+              <p>All sales are final, so sizing is worth a minute. These are made-to-order jerseys and fit looser than a regular shirt &mdash; most people take their usual size. Measurements are in inches.</p>
+              ${sizeTable(JERSEY_SIZES.youth)}
+              ${sizeTable(JERSEY_SIZES.adult)}
+              <p class="sizing-actions">
+                <a class="button ghost small" href="/assets/lihf-jersey-sizing.pdf" target="_blank" rel="noopener">Download the full specification (PDF)</a>
+              </p>
+              <p class="sizing-help">Still unsure, or buying for someone else? Email <a href="mailto:sales@lebanonhockey.com?subject=Sizing%20question">sales@lebanonhockey.com</a> before ordering.</p>
+            </div>`;
+  }
+
   function initShop(root) {
     /* The honest place to mention it is before a cart is built, so the quieter
        is-info variant goes under the shop hero. */
@@ -488,10 +580,7 @@
 
             ${
               hasSizes
-                ? `<div class="sizing-note">
-              <h3>Check your size before you order</h3>
-              <p>All sales are final, so sizing is worth a minute. These are made-to-order hockey jerseys and fit looser than a regular shirt &mdash; most people take their normal size. If you are between sizes, or buying for someone else, email <a href="mailto:sales@lebanonhockey.com?subject=Sizing%20question">sales@lebanonhockey.com</a> before ordering and we will send you the measurements for the garment you are looking at.</p>
-            </div>`
+                ? sizeGuide()
                 : ''
             }
 
@@ -1151,8 +1240,6 @@
     const resultHost = root.querySelector('[data-donate-result]');
     const amountHost = root.querySelector('[data-amount-buttons]');
     const customInput = form?.querySelector('[name="customAmount"]');
-    const coverFee = form?.querySelector('[data-cover-fee]');
-    const feeLabel = form?.querySelector('[data-fee-label]');
     const displayPublicly = form?.querySelector('[data-display-publicly]');
     const emailInput = form?.querySelector('[data-donate-email]');
     const emailHint = form?.querySelector('[data-email-hint]');
@@ -1163,22 +1250,6 @@
 
     let settings = null;
     let chosenCents = 0;
-
-    /* The same gross-up the server applies. Served rather than hardcoded, so the
-       figure shown here and the figure charged cannot drift apart. */
-    function feeFor(cents) {
-      if (!settings || cents <= 0) return 0;
-      const total = Math.ceil((cents + settings.feeFixedCents) / (1 - settings.feePercent));
-      return Math.max(0, total - cents);
-    }
-
-    function refreshFeeLabel() {
-      if (!feeLabel) return;
-      const fee = feeFor(chosenCents);
-      feeLabel.textContent = fee
-        ? `Also add ${money(fee, settings.currency)} so the federation receives the full ${money(chosenCents, settings.currency)}`
-        : 'Also cover the transaction fee';
-    }
 
     /* A monthly gift must carry an email: the only way a donor can stop it is
        the manage link that gets sent there. A one-time gift has nothing to
@@ -1227,7 +1298,6 @@
         b.setAttribute('aria-pressed', Number(b.dataset.cents) === chosenCents ? 'true' : 'false');
       });
       if (!fromCustom && customInput) customInput.value = '';
-      refreshFeeLabel();
     }
 
     function renderAmounts() {
@@ -1349,8 +1419,6 @@
       selectAmount(Number.isFinite(dollars) ? Math.round(dollars * 100) : 0, { fromCustom: true });
     });
 
-    coverFee?.addEventListener('change', refreshFeeLabel);
-
     form?.addEventListener('submit', async (event) => {
       event.preventDefault();
 
@@ -1378,7 +1446,6 @@
             name: values.name,
             message: values.message,
             amountCents: chosenCents,
-            coverFee: Boolean(coverFee?.checked),
             displayPublicly: Boolean(displayPublicly?.checked),
             publicName: values.name,
           },

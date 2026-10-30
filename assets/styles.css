@@ -1802,7 +1802,7 @@ textarea {
   color: var(--muted-soft);
 }
 
-.donate-fee {
+.donate-check {
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -1819,7 +1819,7 @@ textarea {
   cursor: pointer;
 }
 
-.donate-fee input {
+.donate-check input {
   flex: none;
   width: 18px;
   height: 18px;

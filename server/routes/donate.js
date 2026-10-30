@@ -14,7 +14,6 @@ import {
   findDonationByManageToken,
   getDonationProductId,
   serialiseDonation,
-  totalForAmount,
   validateAmount,
   markDonationPaid,
   leaderboard,
@@ -38,8 +37,6 @@ donateRouter.get('/donate/config', (req, res) => {
     currency: config.currency,
     minCents: config.donationMinCents,
     maxCents: config.donationMaxCents,
-    feePercent: config.stripeFeePercent,
-    feeFixedCents: config.stripeFeeFixedCents,
     suggestedCents: [2000, 5000, 10000, 20000],
     paymentsEnabled: stripeEnabled,
   });
@@ -65,7 +62,6 @@ donateRouter.post('/donate', async (req, res) => {
   const kind = req.body?.kind === 'monthly' ? 'monthly' : 'one_time';
   const email = String(req.body?.email || req.user?.email || '').trim().toLowerCase();
   const amountCents = Math.round(Number(req.body?.amountCents) || 0);
-  const coverFee = Boolean(req.body?.coverFee);
 
   /* Email is required for a monthly gift and optional for a one-time one.
 
@@ -102,7 +98,6 @@ donateRouter.post('/donate', async (req, res) => {
     name: req.body?.name,
     message: req.body?.message,
     amountCents,
-    coverFee,
     /* Recorded now, published only once the gift is settled. An unpaid
        checkout must never put a name on the public page. */
     displayPublicly: Boolean(req.body?.displayPublicly),

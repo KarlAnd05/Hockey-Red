@@ -42,8 +42,8 @@ export function uniqueSlug(base, excludeId = null) {
 
 export function listPosts({ includeInactive = false } = {}) {
   const sql = includeInactive
-    ? 'SELECT * FROM news_posts ORDER BY sort_order, published_at DESC, id DESC'
-    : 'SELECT * FROM news_posts WHERE active = 1 ORDER BY sort_order, published_at DESC, id DESC';
+    ? 'SELECT * FROM news_posts ORDER BY published_at DESC, id DESC'
+    : 'SELECT * FROM news_posts WHERE active = 1 ORDER BY published_at DESC, id DESC';
   return db.prepare(sql).all();
 }
 

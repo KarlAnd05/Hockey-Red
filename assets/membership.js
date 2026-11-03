@@ -32,7 +32,14 @@
 
   function syncTier() {
     const tier = currentTier();
-    if (!tier) return;
+    if (!tier) {
+      eligibility.hidden = true;
+      eligibility.querySelectorAll('input, select').forEach((field) => {
+        field.disabled = true;
+      });
+      submit.textContent = 'Choose membership type';
+      return;
+    }
 
     eligibility.hidden = !tier.eligibility;
     /* Disable rather than only hide, so a hidden required field can never block
@@ -49,9 +56,9 @@
   function renderTiers() {
     tierHost.innerHTML = settings.tiers
       .map(
-        (tier, i) => `
+        (tier) => `
       <label class="reg-tier">
-        <input type="radio" name="tier" value="${escapeHtml(tier.key)}"${i === 1 ? ' checked' : ''}>
+        <input type="radio" name="tier" value="${escapeHtml(tier.key)}">
         <span class="reg-tier-label">${escapeHtml(tier.label)}</span>
         <span class="reg-tier-price">${escapeHtml(money(tier.amountCents, settings.currency))}</span>
       </label>`
@@ -152,6 +159,15 @@
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
 
+    if (!currentTier()) {
+      if (statusEl) {
+        statusEl.className = 'form-status is-error';
+        statusEl.textContent = 'Choose a membership type before continuing.';
+      }
+      tierHost.querySelector('input[type="radio"]')?.focus();
+      return;
+    }
+    
     const values = Object.fromEntries(new FormData(form).entries());
     submit.disabled = true;
     const original = submit.textContent;

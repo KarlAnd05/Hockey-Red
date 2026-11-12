@@ -27,8 +27,17 @@ const NAV = [
 
 function shell({ file, title, description, active, body, scripts = [], bodyClass = '' }) {
   const nav = NAV.map(
-    ([href, label]) =>
-      `        <a href="${href}"${href === active ? ' class="is-active"' : ''}>${label}</a>`
+    ([href, label]) => {
+      if (href === 'sponsors.html') {
+        return `        <div class="nav-dropdown">
+          <a href="${href}"${href === active ? ' class="is-active"' : ''}>${label}</a>
+          <div class="nav-dropdown-menu">
+            <a href="donation.html">Donation</a>
+          </div>
+        </div>`;
+      }
+      return `        <a href="${href}"${href === active ? ' class="is-active"' : ''}>${label}</a>`;
+    }
   ).join('\n');
 
   const extraScripts = scripts
@@ -123,7 +132,6 @@ ${body}
             <li><a href="shop.html">All products</a></li>
             <li><a href="cart.html">Cart</a></li>
             <li><a href="account.html">Your account</a></li>
-            <li><a href="donation.html">Donate</a></li>
           </ul>
         </div>
       </div>

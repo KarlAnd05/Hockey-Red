@@ -36,7 +36,12 @@
         <a href="news.html">News</a>
         <a href="membership.html" class="is-active">Membership</a>
         <a href="events.html">Events</a>
-        <a href="sponsors.html">Sponsors</a>
+        <div class="nav-dropdown">
+          <a href="sponsors.html">Sponsors</a>
+          <div class="nav-dropdown-menu">
+            <a href="donation.html">Donation</a>
+          </div>
+        </div>
         <a href="shop.html">Store</a>
       </nav>
       <div class="header-tools">
@@ -143,9 +148,9 @@
             <legend>Contact</legend>
             <div class="reg-grid">
               <label>Email <input type="email" name="email" autocomplete="email" required maxlength="200"></label>
-              <label>Phone <input type="tel" name="phone" autocomplete="tel" maxlength="60"></label>
+              <label>Phone <input type="tel" name="phone" autocomplete="tel" required maxlength="60"></label>
             </div>
-            <label>City of residence <input type="text" name="cityOfResidence" maxlength="120"></label>
+            <label>City of residence <input type="text" name="cityOfResidence" required maxlength="120"></label>
           </fieldset>
 
           <fieldset class="reg-group">
@@ -259,7 +264,6 @@
             <li><a href="shop.html">All products</a></li>
             <li><a href="cart.html">Cart</a></li>
             <li><a href="account.html">Your account</a></li>
-            <li><a href="donation.html">Donate</a></li>
           </ul>
         </div>
       </div>

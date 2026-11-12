@@ -69,7 +69,6 @@ const FOOTER = `    <footer class="site-footer">
             <li><a href="shop.html">All products</a></li>
             <li><a href="cart.html">Cart</a></li>
             <li><a href="account.html">Your account</a></li>
-            <li><a href="donation.html">Donate</a></li>
           </ul>
         </div>
       </div>

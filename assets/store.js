@@ -487,7 +487,9 @@
   function initProduct(root) {
     const slug = qs('slug');
     if (!slug) {
-      window.location.href = 'shop.html';
+      window.location.href = window.LH.localizeUrl
+        ? window.LH.localizeUrl('shop.html')
+        : 'shop.html';
       return;
     }
 
@@ -953,7 +955,9 @@
         );
 
         if (!cart.items.length) {
-          window.location.href = 'cart.html';
+          window.location.href = window.LH.localizeUrl
+            ? window.LH.localizeUrl('cart.html')
+            : 'cart.html';
           return;
         }
 
@@ -1389,6 +1393,7 @@
          smallest gift the federation accepts. */
       if (customInput) {
         customInput.min = String(settings.minCents / 100);
+        customInput.max = String(settings.maxCents / 100);
         customInput.placeholder = (settings.minCents / 100).toFixed(2);
       }
 

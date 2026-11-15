@@ -169,7 +169,10 @@
     return loadSession().then((data) => {
       if (!data || !data.user) {
         const next = encodeURIComponent(redirectTo || window.location.pathname + window.location.search);
-        window.location.href = `login.html?next=${next}`;
+        const loginUrl = `login.html?next=${next}`;
+        window.location.href = window.LH.localizeUrl
+          ? window.LH.localizeUrl(loginUrl)
+          : loginUrl;
         return null;
       }
       return data.user;

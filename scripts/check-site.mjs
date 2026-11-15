@@ -31,6 +31,7 @@ const badPages = [];
 const badRefs = new Map();   // ref -> [status, pages...]
 const external = new Map();  // origin -> [pages...]
 const checked = new Map();   // url -> status
+const localeFailures = [];
 let refCount = 0;
 
 const note = (map, key, page) => {
@@ -120,6 +121,13 @@ try {
   /* the server may not expose teams yet; the rest of the check still stands */
 }
 
+/* Every public page should have a language-prefixed counterpart, including the
+   dynamic news, team, and player pages discovered above. */
+for (const page of [...PAGES]) {
+  const frenchPage = page === '/' ? 'fr/' : `fr/${page}`;
+  PAGES.push(frenchPage);
+}
+
 for (const page of PAGES) {
   const url = new URL(page, base + '/').href;
   let res;
@@ -135,6 +143,13 @@ for (const page of PAGES) {
   }
 
   const html = await res.text();
+  const french = page === 'fr/' || page.startsWith('fr/');
+  if (french && !/<html\b[^>]*\blang="fr"/i.test(html)) {
+    localeFailures.push(`${page} is missing lang="fr"`);
+  }
+  if (!html.includes('/assets/i18n.js')) {
+    localeFailures.push(`${page} is missing the language switch script`);
+  }
 
   for (const ref of refsFrom(html)) {
     refCount += 1;
@@ -162,6 +177,15 @@ for (const page of PAGES) {
       note(badRefs, `${abs.pathname} -> ${code}`, page);
     }
   }
+}
+
+const frenchAdmin = await fetch(new URL('fr/admin/', base + '/'), { redirect: 'manual' });
+if (frenchAdmin.status !== 302 || frenchAdmin.headers.get('location') !== '/admin/') {
+  localeFailures.push('fr/admin/ must redirect to the English admin');
+}
+const frenchApi = await fetch(new URL('fr/api/news', base + '/'), { redirect: 'manual' });
+if (frenchApi.status !== 404) {
+  localeFailures.push('fr/api/news must not expose a French-prefixed API endpoint');
 }
 
 /* Admin must stay shut to a guest. The project returns 404 rather than 401 so
@@ -214,6 +238,13 @@ if (adminOpen.length) {
   failed = true;
   console.log('  ADMIN REACHABLE WITHOUT SIGNING IN');
   for (const p of adminOpen) console.log(`    ${p}`);
+  console.log();
+}
+
+if (localeFailures.length) {
+  failed = true;
+  console.log('  LANGUAGE CONFIGURATION FAILURES');
+  for (const message of localeFailures) console.log(`    ${message}`);
   console.log();
 }
 

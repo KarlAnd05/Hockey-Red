@@ -28,6 +28,46 @@ import { webhookRouter } from './routes/webhook.js';
 // Dev-only allowance so impeccable live mode can load. Never set in production.
 const __impeccableLiveDev = config.isProduction ? '' : ' http://localhost:8400';
 
+function prepareFrenchPage(html, originalUrl) {
+  const englishPath = originalUrl.replace(/^\/fr(?=\/|$)/, '') || '/';
+  const frenchUrl = `${config.appUrl}${originalUrl.split('?')[0]}`;
+  const englishUrl = `${config.appUrl}${englishPath.split('?')[0]}`;
+  let page = html.replace(/<html\b([^>]*)>/i, (tag, attributes) => {
+    const withoutLanguage = attributes.replace(/\s+lang=(["']).*?\1/i, '');
+    return `<html${withoutLanguage} lang="fr">`;
+  });
+
+  page = page.replace(
+    /<\/head>/i,
+    `  <link rel="canonical" href="${frenchUrl}">\n` +
+      `  <link rel="alternate" hreflang="en" href="${englishUrl}">\n` +
+      `  <link rel="alternate" hreflang="fr-CA" href="${frenchUrl}">\n` +
+      '</head>'
+  );
+  page = page.replace(
+    /<\/body>/i,
+    '  <script src="/assets/i18n.js"></script>\n</body>'
+  );
+  page = page.replaceAll('./assets/', '/assets/');
+
+  return page;
+}
+
+function prepareEnglishPage(html, originalUrl) {
+  const frenchUrl = `${config.appUrl}/fr${originalUrl.startsWith('/') ? originalUrl : `/${originalUrl}`}`;
+  let page = html.replace(
+    /<\/head>/i,
+    `  <link rel="alternate" hreflang="en" href="${config.appUrl}${originalUrl.split('?')[0]}">\n` +
+      `  <link rel="alternate" hreflang="fr-CA" href="${frenchUrl.split('?')[0]}">\n` +
+      '</head>'
+  );
+  page = page.replace(
+    /<\/body>/i,
+    '  <script src="/assets/i18n.js"></script>\n</body>'
+  );
+  return page;
+}
+
 export function createApp() {
   const app = express();
 
@@ -75,6 +115,53 @@ export function createApp() {
   app.use(express.json({ limit: '256kb' }));
   app.use(express.urlencoded({ extended: false, limit: '256kb' }));
   app.use(attachSession);
+
+  /* The English and French URLs use the same maintained HTML shells. French
+     pages translate available copy and fall back to English where no
+     translation has been entered. */
+  app.use((req, res, next) => {
+    const french = (req.method === 'GET' || req.method === 'HEAD') && /^\/fr(?:\/|$)/.test(req.path);
+    const originalUrl = req.originalUrl;
+
+    if (french) {
+      const localizedPath = req.path.replace(/^\/fr(?=\/|$)/, '') || '/';
+      if (localizedPath === '/api' || localizedPath.startsWith('/api/')) {
+        return res.status(404).json({ error: 'Unknown endpoint.' });
+      }
+      if (localizedPath === '/admin' || localizedPath.startsWith('/admin/')) {
+        const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+        return res.redirect(302, `${localizedPath}${query}`);
+      }
+    }
+
+    const send = res.send;
+    res.send = function sendLocalized(body) {
+      if (typeof body === 'string' && /<!doctype html|<html\b/i.test(body)) {
+        body = french ? prepareFrenchPage(body, originalUrl) : prepareEnglishPage(body, originalUrl);
+        res.setHeader('Cache-Control', 'no-store');
+      }
+      return send.call(this, body);
+    };
+
+    if (french) {
+      const redirect = res.redirect;
+      res.redirect = function redirectLocalized(...args) {
+        const index = args.length === 1 ? 0 : 1;
+        const target = args[index];
+        if (
+          typeof target === 'string' &&
+          target.startsWith('/') &&
+          !/^\/(?:fr|api|admin|assets)(?:\/|$)/.test(target)
+        ) {
+          args[index] = `/fr${target}`;
+        }
+        return redirect.apply(this, args);
+      };
+    }
+
+    if (french) req.url = req.url.replace(/^\/fr(?=\/|$)/, '') || '/';
+    next();
+  });
 
   /* --- API ---------------------------------------------------------------- */
   app.use('/api', csrfProtection);

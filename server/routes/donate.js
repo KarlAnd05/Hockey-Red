@@ -37,7 +37,7 @@ donateRouter.get('/donate/config', (req, res) => {
     currency: config.currency,
     minCents: config.donationMinCents,
     maxCents: config.donationMaxCents,
-    suggestedCents: [2000, 5000, 10000, 20000],
+    suggestedCents: [2000, 5000, 10000, 20000, 50000, 100000],
     paymentsEnabled: stripeEnabled,
   });
 });

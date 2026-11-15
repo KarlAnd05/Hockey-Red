@@ -459,6 +459,10 @@
   align-items: start;
 }
 
+.product-info {
+  min-width: 0;
+}
+
 .product-gallery {
   position: relative;
   border-radius: var(--radius-lg);
@@ -1487,12 +1491,18 @@
 
 /* Sizing advice on a made-to-order garment, where all sales are final. */
 .sizing-note {
+  min-width: 0;
   margin: var(--s-4) 0;
   padding: 14px 16px;
   border: 1px solid var(--line);
   border-left: 3px solid var(--red);
   border-radius: var(--radius-sm);
   background: var(--soft);
+}
+
+.sizing-note .table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .sizing-note h3 {

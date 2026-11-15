@@ -9,8 +9,9 @@
   function safeNext() {
     const next = qs('next');
     // Only ever redirect to a same-site path, never to an absolute URL.
-    if (!next || !next.startsWith('/') || next.startsWith('//')) return 'account.html';
-    return next;
+    const destination =
+      !next || !next.startsWith('/') || next.startsWith('//') ? 'account.html' : next;
+    return window.LH.localizeUrl ? window.LH.localizeUrl(destination) : destination;
   }
 
   function bindForm(form, handler) {
@@ -144,7 +145,10 @@
       ctx.status.className = 'form-status is-success';
       ctx.status.textContent = 'Password updated. Redirecting you to sign in...';
       setTimeout(() => {
-        window.location.href = 'login.html';
+        const loginUrl = 'login.html';
+        window.location.href = window.LH.localizeUrl
+          ? window.LH.localizeUrl(loginUrl)
+          : loginUrl;
       }, 1600);
     });
   }
@@ -268,7 +272,10 @@
     } catch {
       /* signing out locally either way */
     }
-    window.location.href = 'index.html';
+    const homeUrl = 'index.html';
+    window.location.href = window.LH.localizeUrl
+      ? window.LH.localizeUrl(homeUrl)
+      : homeUrl;
   });
 
   window.LH.requireSignedIn('/account.html').then((user) => {

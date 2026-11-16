@@ -8,6 +8,7 @@
   let session = null;
   let sessionPromise = null;
   let csrfToken = null;
+  const isFrench = /^\/fr(?:\/|$)/.test(window.location.pathname);
 
   /**
    * Fetch the session once and cache it.
@@ -110,12 +111,13 @@
   function money(cents, currency) {
     const value = (Number(cents) || 0) / 100;
     try {
-      return new Intl.NumberFormat('en-CA', {
+      return new Intl.NumberFormat(isFrench ? 'fr-CA' : 'en-CA', {
         style: 'currency',
         currency: (currency || (session && session.currency) || 'cad').toUpperCase(),
       }).format(value);
     } catch {
-      return `$${value.toFixed(2)}`;
+      const amount = value.toFixed(2);
+      return isFrench ? `${amount.replace('.', ',')} $` : `$${amount}`;
     }
   }
 
@@ -132,7 +134,12 @@
     if (!value) return '';
     const date = new Date(String(value).replace(' ', 'T') + (value.endsWith('Z') ? '' : 'Z'));
     if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
-    return date.toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' });
+    return date.toLocaleDateString(isFrench ? 'fr-CA' : 'en-CA', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    });
   }
 
   /* --- Toast ------------------------------------------------------------- */

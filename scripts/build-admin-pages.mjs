@@ -20,9 +20,15 @@ const ICONS = {
   donations: '<path d="M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 21l8.8-8.3a5 5 0 0 0 0-7.1z"/>',
   news: '<path d="M4 5h12a2 2 0 0 1 2 2v12H6a2 2 0 0 1-2-2z"/><path d="M18 9h2a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2M7 9h6M7 13h6M7 17h4"/>',
   chat: '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.3-.6L3 21l1.8-5.2A8.2 8.2 0 0 1 3.6 11.5a8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 8.4 8.4z"/>',
+  messages: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/><path d="m3.6 6.9 8.4 6 8.4-6"/>',
+  sponsors: '<rect x="2.5" y="7" width="19" height="13" rx="2"/><path d="M8.5 7V5.5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2V7M2.5 12.5h19"/>',
+  programs: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10.5h18"/>',
   registrations: '<path d="M16 3H8a2 2 0 0 0-2 2v16l6-3 6 3V5a2 2 0 0 0-2-2z"/><path d="M9 8h6M9 12h4"/>',
+  teams: '<path d="M12 3 5 5.8v5.4c0 4.3 2.9 8.2 7 9.5 4.1-1.3 7-5.2 7-9.5V5.8z"/><path d="m9.2 11.8 2 2 3.6-3.9"/>',
+  games: '<path d="M9 3.5H7A1.5 1.5 0 0 0 5.5 5v15A1.5 1.5 0 0 0 7 21.5h10a1.5 1.5 0 0 0 1.5-1.5V5A1.5 1.5 0 0 0 17 3.5h-2"/><rect x="9" y="2" width="6" height="3.5" rx="1.2"/><path d="M8.8 11h6.4M8.8 15h4"/>',
   roster: '<path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>',
   shipping: '<path d="M3 7h11v10H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="1.6"/><circle cx="17.5" cy="18" r="1.6"/>',
+  live: '<circle cx="12" cy="12" r="2.4"/><path d="M7.9 7.9a5.8 5.8 0 0 0 0 8.2M16.1 16.1a5.8 5.8 0 0 0 0-8.2"/><path d="M5 5a9.9 9.9 0 0 0 0 14M19 19a9.9 9.9 0 0 0 0-14"/>',
 };
 
 const NAV = [
@@ -41,18 +47,27 @@ const NAV = [
   ['registrations.html', 'registrations', 'Registrations'],
   ['teams.html', 'teams', 'Teams'],
   ['games.html', 'games', 'Game sheets'],
+  ['live.html', 'live', 'Live entry'],
   ['roster.html', 'roster', 'Roster'],
   ['shipping.html', 'shipping', 'Shipping'],
   ['content.html', 'content', 'Page text'],
 ];
 
 function shell({ file, key, title, heading, lead, actions = '', body }) {
-  const nav = NAV.map(
-    ([href, icon, label]) => `        <a href="${href}"${href === file ? ' class="is-active"' : ''}>
-          <svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[icon]}</svg>
+  const nav = NAV.map(([href, icon, label]) => {
+    /* A key missing from ICONS used to interpolate the string "undefined" into
+       the SVG, where the browser rendered it as visible text next to the label:
+       five of the rail's eighteen links read "undefined Game sheets" and the
+       like, which is how the game-sheet page came to look broken. Silence was
+       the whole problem, so stop the build instead. */
+    const glyph = ICONS[icon];
+    if (!glyph) throw new Error(`build-admin-pages: no icon defined for "${icon}"`);
+
+    return `        <a href="${href}"${href === file ? ' class="is-active"' : ''}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">${glyph}</svg>
           <span>${label}</span>
-        </a>`
-  ).join('\n');
+        </a>`;
+  }).join('\n');
 
   return `<!doctype html>
 <html lang="en">
@@ -101,7 +116,11 @@ ${body}
     <div class="modal-backdrop" data-modal-backdrop hidden></div>
 
     <script src="/assets/api.js"></script>
-    <script src="/assets/admin.js"></script>
+    <!-- The shell every screen needs, then the script for this one screen.
+         Splitting them means an admin page parses its own few hundred lines
+         instead of all eighteen screens' worth. -->
+    <script src="/assets/admin-core.js"></script>
+    <script src="/assets/admin/${key}.js"></script>
   </body>
 </html>
 `;
@@ -278,12 +297,28 @@ const pages = [
     title: 'Game sheets',
     heading: 'Game sheets',
     lead: 'A game, and the people named on it. Players are pulled from the team rosters and from paid membership records, so nothing is typed twice.',
-    actions: '<button type="button" class="button primary small" data-new-game>New game</button>',
+    actions:
+      '<button type="button" class="toggle-pill off" data-section-toggle>Section off</button>' +
+      '<button type="button" class="button primary small" data-new-game>New game</button>',
     body: `      <section class="admin-panel">
         <div data-games-list></div>
       </section>
 
       <section class="admin-panel" data-game-sheet hidden></section>`,
+  },
+  {
+    /* Its own screen, not a mode inside games.html. The instrument is
+       different - full width, thumb-sized targets, no tables and no
+       modal-per-field - and so is the failure model: one hand, cold rink,
+       a connection that comes and goes. */
+    file: 'live.html',
+    key: 'live',
+    title: 'Live entry',
+    heading: 'Live entry',
+    lead: 'Record a match as it happens. Type what the clock on the wall says; the sheet, the period summary and every player total follow from what you tap here.',
+    body: `      <div class="live" data-live>
+        <div class="admin-loading">Loading&hellip;</div>
+      </div>`,
   },
   {
     file: 'roster.html',

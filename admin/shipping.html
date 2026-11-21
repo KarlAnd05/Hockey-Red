@@ -57,15 +57,15 @@
           <span>Chat</span>
         </a>
         <a href="messages.html">
-          <svg viewBox="0 0 24 24" aria-hidden="true">undefined</svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/><path d="m3.6 6.9 8.4 6 8.4-6"/></svg>
           <span>Messages</span>
         </a>
         <a href="sponsors.html">
-          <svg viewBox="0 0 24 24" aria-hidden="true">undefined</svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="19" height="13" rx="2"/><path d="M8.5 7V5.5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2V7M2.5 12.5h19"/></svg>
           <span>Sponsors</span>
         </a>
         <a href="programs.html">
-          <svg viewBox="0 0 24 24" aria-hidden="true">undefined</svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10.5h18"/></svg>
           <span>Schedule</span>
         </a>
         <a href="registrations.html">
@@ -73,12 +73,16 @@
           <span>Registrations</span>
         </a>
         <a href="teams.html">
-          <svg viewBox="0 0 24 24" aria-hidden="true">undefined</svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 5.8v5.4c0 4.3 2.9 8.2 7 9.5 4.1-1.3 7-5.2 7-9.5V5.8z"/><path d="m9.2 11.8 2 2 3.6-3.9"/></svg>
           <span>Teams</span>
         </a>
         <a href="games.html">
-          <svg viewBox="0 0 24 24" aria-hidden="true">undefined</svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3.5H7A1.5 1.5 0 0 0 5.5 5v15A1.5 1.5 0 0 0 7 21.5h10a1.5 1.5 0 0 0 1.5-1.5V5A1.5 1.5 0 0 0 17 3.5h-2"/><rect x="9" y="2" width="6" height="3.5" rx="1.2"/><path d="M8.8 11h6.4M8.8 15h4"/></svg>
           <span>Game sheets</span>
+        </a>
+        <a href="live.html">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.4"/><path d="M7.9 7.9a5.8 5.8 0 0 0 0 8.2M16.1 16.1a5.8 5.8 0 0 0 0-8.2"/><path d="M5 5a9.9 9.9 0 0 0 0 14M19 19a9.9 9.9 0 0 0 0-14"/></svg>
+          <span>Live entry</span>
         </a>
         <a href="roster.html">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
@@ -118,6 +122,10 @@
     <div class="modal-backdrop" data-modal-backdrop hidden></div>
 
     <script src="/assets/api.js"></script>
-    <script src="/assets/admin.js"></script>
+    <!-- The shell every screen needs, then the script for this one screen.
+         Splitting them means an admin page parses its own few hundred lines
+         instead of all eighteen screens' worth. -->
+    <script src="/assets/admin-core.js"></script>
+    <script src="/assets/admin/shipping.js"></script>
   </body>
 </html>

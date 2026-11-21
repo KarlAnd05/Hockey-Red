@@ -2,6 +2,10 @@
 
 Website, online store, and admin area for the Lebanese Ice Hockey Federation.
 
+For the full system map, database relationships, and information flows, see
+[Project architecture](ARCHITECTURE.md), the [visual overview](docs/architecture-overview.svg),
+and the [complete SQL schema](docs/database-schema.sql).
+
 Express 5 serves the static pages and a JSON API from one port. The database is
 SQLite via Node's built-in `node:sqlite`, so there is no native build step and no
 database server to install.

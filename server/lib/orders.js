@@ -1,3 +1,4 @@
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { db } from '../db.js';
 import { config } from '../config.js';
 import { getCartDetail } from './cart.js';
@@ -10,6 +11,43 @@ function nextOrderNumber() {
     .prepare('SELECT COUNT(*) AS n FROM orders WHERE order_number LIKE ?')
     .get(`LH-${year}-%`).n;
   return `LH-${year}-${String(n + 1).padStart(5, '0')}`;
+}
+
+/**
+ * Constant-time comparison of two bearer tokens. Length first, because
+ * timingSafeEqual throws on a mismatch - the same shape as the CSRF check in
+ * middleware/auth.js.
+ */
+function tokenMatches(stored, supplied) {
+  if (!stored || !supplied) return false;
+  const a = Buffer.from(String(stored));
+  const b = Buffer.from(String(supplied));
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/**
+ * Who may read an order: the buyer who placed it, an admin, or whoever holds
+ * the order's access token.
+ *
+ * One definition, used by GET /api/orders/:id, the invoice download and the
+ * confirmation poll in routes/checkout.js. Each of those had its own copy of
+ * this rule, which is how the same hole stayed open in all three at once.
+ *
+ * The token is what a guest has instead of an account: it is minted with the
+ * order and travels in the confirmation link and in the emails. ?session= is
+ * still honoured, for card orders placed before the token existed.
+ */
+export function canAccessOrder(order, req) {
+  if (!order) return false;
+  if (req.user?.role === 'admin') return true;
+  if (order.user_id && order.user_id === req.user?.id) return true;
+
+  if (tokenMatches(order.access_token, req.query.token)) return true;
+
+  const sessionParam = String(req.query.session || '');
+  if (!order.user_id && sessionParam && order.stripe_session_id === sessionParam) return true;
+
+  return false;
 }
 
 /**
@@ -44,17 +82,24 @@ export function createPendingOrder({
 
   const orderNumber = nextOrderNumber();
 
+  /* The buyer's way back to this order. A guest has no account to sign in to,
+     so this token is the whole of their claim to it: it goes into the link on
+     the confirmation page and into every email about the order. */
+  const accessToken = randomBytes(32).toString('hex');
+
   const result = db
     .prepare(
       `INSERT INTO orders
-        (order_number, user_id, email, status, subtotal_cents, discount_cents, shipping_cents,
-         tax_cents, total_cents, currency, discount_code, payment_method,
+        (order_number, user_id, cart_id, email, status, subtotal_cents, discount_cents,
+         shipping_cents, tax_cents, total_cents, currency, discount_code, payment_method,
+         access_token,
          ship_name, ship_line1, ship_line2, ship_city, ship_region, ship_postal, ship_country)
-       VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       orderNumber,
       userId ?? null,
+      cartId ?? null,
       email,
       detail.subtotalCents,
       detail.discountCents,
@@ -64,6 +109,7 @@ export function createPendingOrder({
       detail.currency,
       detail.discountCode || '',
       paymentMethod === 'etransfer' ? 'etransfer' : 'card',
+      accessToken,
       String(shipping.name || '').slice(0, 160),
       String(shipping.line1 || '').slice(0, 200),
       String(shipping.line2 || '').slice(0, 200),
@@ -95,7 +141,7 @@ export function createPendingOrder({
     );
   });
 
-  return { orderId, orderNumber, detail };
+  return { orderId, orderNumber, accessToken, detail };
 }
 
 /**
@@ -136,13 +182,19 @@ export async function markOrderPaid(orderId, { paymentIntentId = null, cartId = 
     ).run(order.discount_code);
   }
 
-  /* cartId is the cart the order was actually built from, carried on the Stripe
-     session's metadata by both callers. The fallback below is for an older
-     order that predates that metadata: it clears the signed-in buyer's newest
-     cart, which is a guess, and can empty a basket they started elsewhere.
-     Prefer passing cartId. */
-  if (cartId) {
-    db.prepare('DELETE FROM cart_items WHERE cart_id = ?').run(cartId);
+  /* Empty the basket the order came out of, or the buyer comes back from paying
+     to find the goods still sitting in it, inviting them to buy again.
+
+     orders.cart_id is recorded at creation, so it is right for every caller -
+     including the two that never see Stripe metadata, namely a guest settled by
+     hand from the admin screen and the e-Transfer flow as a whole. The explicit
+     argument still wins where it is passed, because the Stripe callers read the
+     same value off the session. The user_id guess is now only for orders that
+     predate the column, and still cannot help a guest. */
+  const settledCartId = cartId || order.cart_id || null;
+
+  if (settledCartId) {
+    db.prepare('DELETE FROM cart_items WHERE cart_id = ?').run(settledCartId);
   } else if (order.user_id) {
     const cart = db
       .prepare('SELECT id FROM carts WHERE user_id = ? ORDER BY id DESC LIMIT 1')

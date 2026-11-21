@@ -2,7 +2,12 @@ import { Router } from 'express';
 import { db } from '../db.js';
 import { config, stripeEnabled } from '../config.js';
 import { getOrCreateCart, getCartDetail } from '../lib/cart.js';
-import { createPendingOrder, markOrderPaid, serialiseOrder } from '../lib/orders.js';
+import {
+  canAccessOrder,
+  createPendingOrder,
+  markOrderPaid,
+  serialiseOrder,
+} from '../lib/orders.js';
 import { getStripe } from '../lib/stripe.js';
 import { COUNTRIES } from '../lib/shipping.js';
 import { sendEtransferInstructions } from '../lib/notifications.js';
@@ -75,6 +80,10 @@ checkoutRouter.post('/checkout', async (req, res) => {
       method: 'etransfer',
       orderId: created.orderId,
       orderNumber: created.orderNumber,
+      /* Without this the buyer is sent to a confirmation page that cannot read
+         the order they have just placed. A guest has no account, so the token is
+         the only claim to it they will ever have. */
+      accessToken: created.accessToken,
       instructions: {
         email: config.etransferEmail,
         name: config.etransferName,
@@ -172,7 +181,10 @@ checkoutRouter.post('/checkout', async (req, res) => {
       discounts,
       client_reference_id: String(orderId),
       metadata: { order_id: String(orderId), cart_id: String(cart?.id ?? '') },
-      success_url: `${config.appUrl}/order-confirmation.html?order=${orderId}&session={CHECKOUT_SESSION_ID}`,
+      /* The token rides along beside the Stripe session id so both payment
+         methods come back to the same page by the same route. ?session= is kept
+         because orders placed before the token existed still rely on it. */
+      success_url: `${config.appUrl}/order-confirmation.html?order=${orderId}&session={CHECKOUT_SESSION_ID}&token=${encodeURIComponent(created.accessToken)}`,
       cancel_url: `${config.appUrl}/cart.html?cancelled=1`,
     });
 
@@ -193,12 +205,9 @@ checkoutRouter.get('/checkout/status/:orderId', async (req, res) => {
   const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(Number(req.params.orderId));
   if (!order) return res.status(404).json({ error: 'Order not found.' });
 
-  // Only the buyer (or an admin) may look at an order.
-  const owns =
-    (order.user_id && order.user_id === req.user?.id) ||
-    (!order.user_id && req.query.session && order.stripe_session_id === req.query.session);
-
-  if (!owns && req.user?.role !== 'admin') {
+  /* Shared with GET /api/orders/:id and the invoice download, rather than a
+     third hand-rolled copy of the same rule. */
+  if (!canAccessOrder(order, req)) {
     return res.status(403).json({ error: 'Not your order.' });
   }
 

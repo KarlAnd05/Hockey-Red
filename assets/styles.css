@@ -230,7 +230,7 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: var(--s-5);
-  min-height: 72px;
+  min-height: 96px;
   padding: 10px var(--gutter);
   background: rgba(255, 255, 255, 0.72);
   border-bottom: 1px solid transparent;
@@ -242,7 +242,7 @@ a {
 
 /* Scroll-linked chrome - .is-stuck is toggled from app.js */
 .site-header.is-stuck {
-  min-height: 64px;
+  min-height: 88px;
   background: rgba(255, 255, 255, 0.92);
   border-bottom-color: var(--line);
   box-shadow: var(--shadow-sm);
@@ -252,19 +252,45 @@ a {
   display: inline-flex;
   align-items: center;
   gap: var(--s-3);
+  min-width: 0;
   color: var(--ink-deep);
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 16px;
+  font-size: 20px;
   text-decoration: none;
   letter-spacing: 0.01em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
+/* The file is the crest and nothing else: 378x310, trimmed to its own edges.
+   It used to be an 810x630 canvas with the crest floating in the middle of it,
+   77% transparent padding, so a box of any size spent most of itself on empty
+   air - at 88x68 the visible mark was 41x34. Trimming the file is what made
+   the logo bigger; the box below only had to follow the new 1.219:1.
+
+   object-fit: contain still guards the fit, but there is nothing left to
+   letterbox: 68px of box height is now 68px of crest.
+
+   The header's two heights follow from that rather than being picked on their
+   own: 68 plus 10px of padding above and below is exactly the stuck height, so
+   the crest is never the thing deciding how tall the header is and the
+   scroll-shrink keeps its full 96 -> 88 travel. The same size holds on a phone
+   - the wordmark is hidden below 560px, so nothing competes with it for the
+   row.
+
+   flex-shrink: 0 and max-width: none because a flex item shrinks by default
+   and the global img rule caps one at its container, and a logo that quietly
+   gets smaller on a narrow screen is the bug this set out to fix: the brand is
+   the only item in the header row allowed to give way, so at 360px it was
+   handing back width and object-fit answered by painting the crest well under
+   its box. The crest is a fixed asset, not slack. What gives way instead is
+   the wordmark, which is hidden outright at that width. */
 .brand img {
-  width: 42px;
-  height: 42px;
+  width: 83px;
+  height: 68px;
+  flex-shrink: 0;
+  max-width: none;
   object-fit: contain;
   transition: transform 0.4s var(--ease-out);
 }
@@ -273,18 +299,40 @@ a {
   transform: rotate(-6deg) scale(1.06);
 }
 
+/* The wordmark is nowrap, and a flex item's default min-width is its content,
+   so as the header narrowed this was not a wordmark that got shorter - it was
+   one that kept its full width and walked out of the brand link, ending up
+   underneath the Sign In button. min-width lets both flex items give way; the
+   ellipsis is what they give way to, so the text can never overlap whatever
+   sits beside it at a width nobody tested. Below 560px it is hidden outright,
+   so the ellipsis is a backstop rather than something anyone should see. */
+.brand span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .site-nav {
   display: flex;
   align-items: center;
+  /* Full height of the header's content box, so a flyout anchored to the
+     bottom of .nav-group lands on the header's edge rather than part-way up
+     it. The links stay centred on their own through align-items above, and
+     below 1100px the nav is positioned absolutely, where this has no effect. */
+  align-self: stretch;
   gap: 2px;
 }
 
 .site-nav a {
   position: relative;
-  padding: 9px 12px;
+  /* The underline below is inset by exactly this much, so the two cannot drift
+     apart when a breakpoint changes the padding - which is how the mid-tier
+     underline ended up wider than its own link. */
+  --nav-pad-x: 9px;
+  padding: 9px var(--nav-pad-x);
   border-radius: var(--radius-xs);
   color: var(--ink);
-  font-size: 13.5px;
+  font-size: 15.5px;
   font-weight: 700;
   text-decoration: none;
   letter-spacing: 0.005em;
@@ -295,8 +343,8 @@ a {
 .site-nav a::after {
   content: "";
   position: absolute;
-  left: 12px;
-  right: 12px;
+  left: var(--nav-pad-x);
+  right: var(--nav-pad-x);
   bottom: 4px;
   height: 2px;
   border-radius: 2px;
@@ -318,6 +366,87 @@ a {
 
 .site-nav a.is-active {
   color: var(--red);
+}
+
+/* --- Sponsors flyout ----------------------------------------------------- *
+ * Donating used to be reachable from one button at the foot of the sponsors
+ * page, which meant finding the page first. Sponsoring and donating are the
+ * same errand from the visitor's side, so Donation now hangs off Sponsors in
+ * the header instead of taking a ninth slot in a row that has no room for one.
+ *
+ * The parent is still a plain link to sponsors.html. The flyout is additive:
+ * clicking straight through works, and so does never hovering at all. */
+.nav-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+}
+
+.nav-submenu {
+  position: absolute;
+  /* The group now reaches the bottom of the header's content box, and the
+     header's own 10px of bottom padding is all that is left between there and
+     its outer edge - a constant at both header heights, 96px and 88px. */
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 60;
+  display: grid;
+  min-width: 190px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  transition: opacity 0.2s var(--ease-out), transform 0.2s var(--ease-out),
+    visibility 0.2s;
+}
+
+/* That 10px would drop the hover the moment the pointer crossed it, so the
+   panel carries an invisible strip covering the gap. It only has to HOLD the
+   hover, never start it - while the panel is hidden, so is this strip. */
+/* A flyout whose only child has been stripped by a section switch still has
+   a min-width, padding, a border and a shadow, so hovering the parent would
+   open an empty box. */
+.nav-submenu:empty {
+  display: none;
+}
+
+.nav-submenu::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 10px;
+}
+
+.nav-group:hover .nav-submenu,
+.nav-group:focus-within .nav-submenu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* Inside the panel the links are rows, not header items: full width, and no
+   sliding underline, which only makes sense against the header's baseline. */
+.nav-submenu a {
+  padding: 10px 12px;
+  white-space: nowrap;
+}
+
+.nav-submenu a::after {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-submenu {
+    transition: none;
+    transform: none;
+  }
 }
 
 /* --- Header utility cluster (account + cart) --- */
@@ -1084,8 +1213,12 @@ h3 {
    ========================================================================== */
 .contact-section {
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(320px, 1fr);
-  gap: clamp(32px, 5vw, 80px);
+  /* One centred column rather than details-beside-form: the form is the point
+     of this band, so it sits in the middle of the page like every other form
+     on the site. 640px matches the registration and contact-page columns. */
+  grid-template-columns: minmax(0, 640px);
+  justify-content: center;
+  gap: clamp(32px, 4vw, 56px);
 }
 
 address {
@@ -1207,9 +1340,14 @@ textarea {
   text-decoration: none;
 }
 
+/* 34x28, not the 72x56 this was, because the file changed under it: the crest
+   was trimmed out of an 810x630 canvas that was 77% transparent padding, and a
+   72x56 box of that padded file only ever painted a 34x28 crest. These numbers
+   keep the footer mark pixel-for-pixel what it has always been - only the
+   header was meant to grow. Raise them here if the footer should grow too. */
 .footer-brand img {
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 28px;
   object-fit: contain;
 }
 
@@ -1325,6 +1463,31 @@ textarea {
 .info-card p {
   color: var(--muted);
   font-size: 15px;
+}
+
+/* A bulleted list inside a card - the development objectives on About. The
+   card is already a grid with its own gap, so the list needs no margin of its
+   own, and the bullets are pulled in from the browser's 40px indent to sit
+   just inside the card's padding. */
+.info-card ul {
+  margin: 0;
+  padding-left: 17px;
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.info-card li::marker {
+  color: var(--red);
+}
+
+/* The history timeline on About reuses .schedule-row. The rows there carry
+   metadata and a button and want the full measure; a milestone is a date and
+   one sentence, which reads better held to a text column. */
+.history-list {
+  max-width: 76ch;
 }
 
 .info-card .price {
@@ -1498,6 +1661,20 @@ textarea {
     cursor: auto;
     -webkit-mask-image: none;
     mask-image: none;
+    /* The rail is hand-scrolled here rather than animated, so the bar has to stay
+       reachable - just not the browser default sitting under a row of cards. */
+    padding-bottom: var(--s-2);
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+
+  .marquee::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .marquee::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 999px;
   }
 
   .marquee-track {
@@ -1520,12 +1697,31 @@ textarea {
    ========================================================================== */
 @media (max-width: 1440px) {
   .site-nav a {
-    padding: 8px 8px;
-    font-size: 12.5px;
+    /* Tighter than the full-width tier: between 1101 and 1440 the row has to
+       hold all eight items, and for a signed-in admin a third tool button as
+       well. Padding is the cheapest thing to give up - the text itself is what
+       the visitor reads. */
+    --nav-pad-x: 6px;
+    padding: 8px var(--nav-pad-x);
+    font-size: 14px;
     letter-spacing: -0.005em;
   }
+}
 
+/* The federation name, not just the crest. It used to go at 1440, which took it
+   off every ordinary laptop (1920x1080 at 150% Windows scaling reports 1280).
+   1250 is the measured floor: below it the wordmark truncates to an ellipsis. */
+@media (max-width: 1250px) {
   .brand span {
+    display: none;
+  }
+}
+
+/* Signed in as admin the header carries a third tool button, and the row needs
+   the width back sooner. app.js un-hides that link, so the markup already says
+   which case this is. */
+@media (max-width: 1440px) {
+  .site-header:has([data-admin-link]:not([hidden])) .brand span {
     display: none;
   }
 }
@@ -1558,7 +1754,7 @@ textarea {
     right: 0;
     order: 4;
     display: none;
-    max-height: calc(100svh - 72px);
+    max-height: calc(100svh - 96px);
     overflow-y: auto;
     padding: var(--s-3) var(--gutter) var(--s-5);
     background: #ffffff;
@@ -1571,8 +1767,9 @@ textarea {
   }
 
   .site-nav a {
-    padding: 13px 12px;
-    font-size: 15px;
+    --nav-pad-x: 12px;
+    padding: 13px var(--nav-pad-x);
+    font-size: 16px;
     border-bottom: 1px solid var(--line);
   }
 
@@ -1580,9 +1777,36 @@ textarea {
     display: none;
   }
 
+  /* No hover on a phone, so the flyout stops being a flyout: display:contents
+     drops the wrapper's box and lets the parent link and its children stack as
+     ordinary rows of the open panel. */
+  .nav-group {
+    display: contents;
+  }
+
+  .nav-submenu {
+    position: static;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+  }
+
+  .nav-submenu::before {
+    display: none;
+  }
+
+  .nav-submenu a {
+    padding-left: 30px;
+  }
+
   .feature-grid,
   .split-section,
-  .contact-section,
   .partner-strip {
     grid-template-columns: 1fr;
   }
@@ -1602,22 +1826,36 @@ textarea {
   }
 }
 
-@media (max-width: 640px) {
-  .brand span {
-    font-size: 13px;
-  }
+/* The tool labels used to appear at 641px, in the same step that takes the
+   wordmark to 20px and the header gap back to 24px. Three costs landing on one
+   breakpoint left the brand 11px of slack at exactly 641px - it fitted, but a
+   font rendering a hair wider would have ellipsised the wordmark.
 
-  .brand img {
-    width: 36px;
-    height: 36px;
-  }
-
+   The labels are the cheapest of the three to defer: they are 66px of text
+   beside icons that already carry an aria-label, and nothing identifies them
+   that the icon does not. Holding them back to 761px gives the brand 77px at
+   641px instead, and the labels return exactly where there is room for them. */
+@media (max-width: 760px) {
   .icon-button .label {
     display: none;
   }
 
   .icon-button {
     padding: 0 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  /* The tools carry margin-left:auto, so they sit hard right whatever the gap
+     is - on a phone 24px of it is simply taken off the brand, which is the
+     only item in the row allowed to shrink. 12px here is what buys the crest
+     its full width back at 360px. */
+  .site-header {
+    gap: 12px;
+  }
+
+  .brand span {
+    font-size: 16px;
   }
 
   .program-list,
@@ -1639,6 +1877,55 @@ textarea {
 
   .scroll-cue {
     display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  /* Below this the crest is the brand on its own. That is the same trade the
+     1100-1440px range already makes when the nav wants the room, and the link
+     keeps its aria-label, so a screen reader still announces "Lebanon Hockey
+     home".
+
+     560px, not the 520px this started at, because the figure has to move with
+     the crest. Measuring the leftover space in the header row across 27 widths
+     from 320 to 1920: at 521px, with an 88px crest and the 16px wordmark, the
+     row had 36px to spare - positive, but that is the "handful of pixels" this
+     breakpoint exists to avoid, and it is what the old 520px bought back when
+     the crest was 42px. 560px restores about 70px, which leaves 641px the
+     tightest width on the site at 77px. */
+  .brand span {
+    display: none;
+  }
+
+  /* min-width:0 above exists so the wordmark can ellipsis rather than walk
+     under the buttons. With the wordmark hidden there is nothing left to
+     ellipsis, and the only thing it still does is let the crest be squeezed -
+     the brand is the crest here, so it holds its size. */
+  .brand {
+    flex-shrink: 0;
+  }
+}
+
+/* The narrowest phones still in use cannot seat the crest, three tool buttons
+   and the menu toggle inside 320px at full spacing. The spacing gives way
+   rather than the logo.
+
+   Three buttons, not two, is the case to size for: a signed-in admin carries
+   account + admin + cart, which is 145px of the row where a signed-out
+   visitor has 94px. At 320px with that third button the toggle was finishing
+   5px inside the right gutter - not an overflow and not an overlap, the
+   scrollWidth stayed at 320, but the gutter is 20px everywhere else and it
+   should be here too. 8px button padding, an 8px row gap and a 16px header
+   gutter together hand back 28px, which is more than the row was short. */
+@media (max-width: 360px) {
+  .icon-button {
+    padding: 0 8px;
+  }
+
+  .site-header {
+    gap: 8px;
+    padding-left: 16px;
+    padding-right: 16px;
   }
 }
 
@@ -1704,6 +1991,16 @@ textarea {
    ========================================================================== */
 .donate-form {
   max-width: 560px;
+  /* Auto side margins. A max-width block with margin-top alone sits flush
+     against the left gutter; on a wide screen that left a long empty strip
+     down the right of the section. */
+  margin: var(--s-6) auto 0;
+}
+
+/* The form is a grid with a var(--s-4) gap, which put the submit button
+   directly under the last field. Push it clear so the action reads as the end
+   of the form rather than one more row of it. */
+.donate-form > [data-donate-submit] {
   margin-top: var(--s-6);
 }
 
@@ -1872,6 +2169,14 @@ textarea {
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
+  /* News photographs are portraits of people - the three carried over from the
+     old site run from 0.60 to 0.96 wide-to-tall - and a portrait cropped into a
+     16:9 box loses most of its height. Centred, that cut lands across the
+     subject's forehead: the 844x1414 shot of Jocelyn Trepanier was framed from
+     the eyebrows down. Taking the crop from 30% rather than 50% puts the head
+     and shoulders in the box instead, and on a landscape image, where there is
+     barely any overflow to position, it makes almost no difference. */
+  object-position: center 30%;
 }
 
 .news-date {
@@ -2383,7 +2688,30 @@ body.has-lightbox {
    ========================================================================== */
 .membership-form {
   max-width: 640px;
+  /* Centred for the same reason as .donate-form above. */
+  margin: var(--s-6) auto 0;
+}
+
+/* "Continue" sat tight under the message box. Give it room. */
+.membership-form > [data-membership-submit] {
   margin-top: var(--s-6);
+}
+
+/* Everything stacked above the form - the heading, and the notice and result
+   banners the scripts fill in - shares the form's column, so the text starts
+   at the form's left edge instead of floating away from it. */
+[data-page="membership"] .section-heading,
+[data-page="membership"] [data-membership-notice],
+[data-page="membership"] [data-membership-result] {
+  max-width: 640px;
+  margin-inline: auto;
+}
+
+[data-page="donation"] .section-heading,
+[data-page="donation"] [data-payments-notice],
+[data-page="donation"] [data-donate-result] {
+  max-width: 560px;
+  margin-inline: auto;
 }
 
 .reg-group {
@@ -3089,9 +3417,10 @@ label.is-invalid,
    ========================================================================== */
 .contact-layout {
   display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(320px, 1fr);
-  gap: clamp(32px, 5vw, 72px);
-  align-items: start;
+  /* Details above, form below, the pair centred. See .contact-section. */
+  grid-template-columns: minmax(0, 640px);
+  justify-content: center;
+  gap: clamp(32px, 4vw, 56px);
 }
 
 .contact-details h2 {
@@ -3164,10 +3493,6 @@ label.is-invalid,
 }
 
 @media (max-width: 860px) {
-  .contact-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   /* On a phone these are the primary actions on the page - an email address to
      tap and a link to follow. At their desktop line-height they are a 22px
      target, which is well under what a thumb can hit reliably, so they get
@@ -3260,6 +3585,78 @@ label.is-invalid,
 
 /* --- Team facts: coaching staff and honours ------------------------------- *
  * Carried over from the programme pages that were merged into Our Teams. */
+/* The squad portrait at the top of a team profile.
+
+   560px, not the full column width. The federation's Panthers photographs are
+   510px originals; filling a 1200px section stretched one to 719px, a 1.41x
+   upscale that shows. At 560 the upscale is 1.1x, which does not, and the
+   larger squad photographs still have room.
+
+   Deliberately NOT width: fit-content, which would avoid upscaling entirely.
+   A lazily-loaded image has no intrinsic width until it arrives, so the figure
+   collapsed to the width of its own borders - 2px on a phone - and an element
+   that small may never come near the viewport to trigger the load. */
+.team-portrait {
+  max-width: 560px;
+  margin: 0 auto var(--s-7);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--soft);
+}
+
+.team-portrait img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* The rest of a team's pictures, below the roster. auto-fill rather than
+   auto-fit so a team with two photographs gets two tiles the same size as
+   everyone else's instead of two very wide ones. */
+.team-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--s-4);
+  margin-top: var(--s-5);
+}
+
+.team-gallery figure {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+/* A fixed ratio keeps the grid rows level across portrait and landscape
+   originals; object-fit crops rather than distorts.
+
+   The crop sits above centre on purpose. These are photographs of people, the
+   supplied set mixes 425x239 letterbox with 378x567 portrait, and a centred
+   4:3 crop of the portrait one takes the top off everybody's head. */
+.team-gallery img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  object-position: 50% 35%;
+  background: var(--soft);
+}
+
+.team-gallery figcaption {
+  padding: 10px 14px 14px;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+@media (max-width: 560px) {
+  .team-gallery {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .team-facts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

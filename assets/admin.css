@@ -29,7 +29,7 @@
 .admin-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding-bottom: var(--s-5);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   color: #fff;
@@ -41,10 +41,31 @@
   text-decoration: none;
 }
 
+/* Sized to the crest's own 1.286:1, like the site header - a square box would
+   spend a quarter of its height on empty air.
+
+   21x17 keeps the rail mark pixel-for-pixel what it has always been. The file
+   changed under it: the crest was trimmed out of an 810x630 canvas that was
+   77% transparent padding, so the 44x34 box this replaces only ever painted a
+   21x17 crest. Only the header was meant to grow.
+
+   There is room to raise it if the rail should grow too, but not much: 248px
+   less 16px of side padding leaves 216px, and "LEBANON HOCKEY" needs 161px of
+   that on one line, so the mark plus its 8px gap cannot pass 47px. The
+   wordmark is nowrap below, so overshooting shows up immediately rather than
+   quietly wrapping "LEBANON / HOCKEY" mid-phrase, which is what an oversized
+   mark did here once already. */
 .admin-brand img {
-  width: 34px;
-  height: 34px;
+  width: 21px;
+  height: 17px;
+  flex-shrink: 0;
+  max-width: none;
   object-fit: contain;
+}
+
+/* One line, always: see the budget on .admin-brand img. */
+.admin-brand span {
+  white-space: nowrap;
 }
 
 .admin-brand small {
@@ -1397,4 +1418,664 @@ table.data .tier.partner  { background: var(--red-tint); color: var(--red-dark);
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.07em;
+}
+
+/* ==========================================================================
+   Live entry
+   --------------------------------------------------------------------------
+   A rink screen, not a desk screen. The eighteen-link rail is stolen width on
+   a phone held in one hand, so this page drops it; everything here is sized
+   for a gloved thumb and nothing depends on hover.
+   ========================================================================== */
+body[data-admin-page="live"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body[data-admin-page="live"] .admin-rail {
+  display: none;
+}
+
+body[data-admin-page="live"] .admin-main {
+  padding: var(--s-4) clamp(12px, 2vw, 28px) var(--s-6);
+}
+
+.live {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.live button,
+.live input {
+  touch-action: manipulation;
+}
+
+/* 16px stops iOS zooming the viewport when a field takes focus. */
+.live input {
+  font: inherit;
+  font-size: 16px;
+}
+
+/* --- the bar ------------------------------------------------------------- */
+.live-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  gap: var(--s-2);
+  padding: var(--s-3);
+  border-radius: var(--radius-sm);
+  background: var(--ink-deep);
+  color: #fff;
+  box-shadow: var(--shadow-md);
+}
+
+.live-bar-top {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+}
+
+.live-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 2px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+/* The shared admin button is 35px, which is a desk size. Raised here only -
+   every target on this screen is hit with a thumb, often wearing a glove. */
+.live .mini-button {
+  min-height: 44px;
+}
+
+.live-fixture {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.live-fixture span {
+  display: block;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.live-state {
+  flex: none;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.live-state.is-saved {
+  background: rgba(15, 122, 67, 0.32);
+  color: #b7ecc9;
+}
+
+.live-state.is-waiting,
+.live-state.is-offline {
+  background: rgba(160, 95, 0, 0.45);
+  color: #ffdfae;
+}
+
+.live-bar-main {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+}
+
+.live-score {
+  margin: 0;
+  flex: 1 1 160px;
+  font-size: clamp(26px, 6vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.live-score span {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.live-score small {
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.live-periods {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+
+.live-periods button {
+  min-width: 46px;
+  min-height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.live-periods button.is-on {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+
+.live-clock {
+  display: grid;
+  gap: 2px;
+  flex: none;
+}
+
+.live-clock span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.live-clock input {
+  width: 92px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-xs);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-weight: 800;
+  text-align: center;
+}
+
+.live-score-note {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  padding-top: var(--s-2);
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.74);
+}
+
+/* --- layout -------------------------------------------------------------- */
+.live-grid {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.live-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-3);
+}
+
+.live-big {
+  min-height: 56px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+
+.live-big.goal {
+  background: var(--red);
+}
+
+.live-big.penalty {
+  background: var(--steel);
+}
+
+/* --- the composer -------------------------------------------------------- */
+.live-composer {
+  display: grid;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.live-composer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.live-composer-head h2 {
+  margin: 0;
+  font-size: 18px;
+  text-transform: capitalize;
+}
+
+.live-composer-head .close {
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.live-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+}
+
+.live-sides {
+  flex: 1 1 200px;
+}
+
+.live-field {
+  display: grid;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted-soft);
+}
+
+.live-field input {
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--radius-xs);
+  background: var(--white);
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.live-field-time input {
+  width: 104px;
+  text-align: center;
+}
+
+.live-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted-soft);
+}
+
+/* --- jersey tiles -------------------------------------------------------- */
+.live-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: var(--s-2);
+}
+
+.live-tile {
+  display: grid;
+  gap: 2px;
+  align-content: center;
+  min-height: 72px;
+  padding: var(--s-2) 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  background: var(--white);
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.live-tile-number {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.live-tile-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Role is carried by the fill, not by a tick, so it reads at arm's length. */
+.live-tile.is-scorer,
+.live-tile.is-picked {
+  background: var(--red);
+  border-color: var(--red-dark);
+  color: #fff;
+}
+
+.live-tile.is-assist1,
+.live-tile.is-assist2 {
+  background: var(--steel);
+  border-color: var(--ink-deep);
+  color: #fff;
+}
+
+.live-tile.is-assist2 {
+  opacity: 0.82;
+}
+
+.live-tile.is-scorer .live-tile-name,
+.live-tile.is-picked .live-tile-name,
+.live-tile.is-assist1 .live-tile-name,
+.live-tile.is-assist2 .live-tile-name {
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.live-tile.is-unnumbered .live-tile-number {
+  display: none;
+}
+
+.live-tile.is-unnumbered .live-tile-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: inherit;
+  white-space: normal;
+}
+
+.live-readout {
+  margin: 0;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--radius-xs);
+  background: var(--soft-2);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* --- chips --------------------------------------------------------------- */
+.live-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.live-chip {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--white);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.live-chip.is-on {
+  background: var(--ink-deep);
+  border-color: var(--ink-deep);
+  color: #fff;
+}
+
+.live-chip.is-more {
+  border-style: dashed;
+  color: var(--muted-soft);
+}
+
+.live-offence-all {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+  max-height: 46vh;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.live-offence-all .live-chip {
+  min-height: 48px;
+  padding: 8px 10px;
+  border-radius: var(--radius-xs);
+  line-height: 1.25;
+  text-align: left;
+}
+
+.live-offence-all .live-chip small {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted-soft);
+}
+
+.live-offence-all .live-chip.is-on small {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.live-save {
+  min-height: 56px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--ok);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  cursor: pointer;
+}
+
+.live-error {
+  margin: 0;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--radius-xs);
+  background: var(--red-tint);
+  color: var(--red-dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.live-note {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+/* --- the recorded list --------------------------------------------------- */
+.live-list-heading {
+  margin: 0 0 var(--s-2);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted-soft);
+}
+
+.live-list-heading span {
+  color: var(--ink);
+}
+
+.live-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.live-event {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+  padding: var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+}
+
+.live-event.is-them {
+  background: var(--soft);
+}
+
+.live-event.is-pending {
+  border-style: dashed;
+  border-color: var(--warn);
+}
+
+.live-when {
+  flex: none;
+  min-width: 72px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted-soft);
+}
+
+.live-what {
+  flex: 1 1 180px;
+  min-width: 0;
+  font-size: 14px;
+}
+
+.live-whose {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted-soft);
+}
+
+.live-assists {
+  color: var(--muted);
+}
+
+.live-nobody {
+  color: var(--warn);
+  font-style: italic;
+}
+
+.live-chip-inline {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--soft-2);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.live-pending-dot {
+  flex: none;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--warn);
+}
+
+.live-event-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.live-empty {
+  margin: 0;
+  padding: var(--s-5) var(--s-4);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* --- the chooser --------------------------------------------------------- */
+.live-chooser {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.live-chooser h2 {
+  margin: 0 0 var(--s-1);
+  font-size: 18px;
+}
+
+.live-pick {
+  display: grid;
+  gap: 3px;
+  min-height: 60px;
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.live-pick span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* --- phone: the composer becomes a bottom sheet -------------------------- */
+@media (max-width: 699px) {
+  body[data-admin-page="live"] .admin-head p {
+    display: none;
+  }
+
+  body[data-admin-page="live"] .admin-head h1 {
+    font-size: 22px;
+  }
+
+  .live-composer {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 20;
+    max-height: 85vh;
+    overflow-y: auto;
+    border-radius: var(--radius) var(--radius) 0 0;
+    box-shadow: var(--shadow-lg);
+  }
+
+  body.live-composing {
+    overflow: hidden;
+  }
+}
+
+/* --- tablet and up: the composer stays beside the list ------------------- */
+@media (min-width: 700px) {
+  .live-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .live-left {
+    display: grid;
+    gap: var(--s-4);
+    position: sticky;
+    top: 136px;
+  }
 }

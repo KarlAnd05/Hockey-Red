@@ -32,11 +32,21 @@
       <nav id="site-nav" class="site-nav" aria-label="Primary navigation">
         <a href="index.html">Home</a>
         <a href="about.html">About</a>
-        <a href="teams.html">Our Teams</a>
+        <div class="nav-group">
+          <a href="teams.html">Our Teams</a>
+          <div class="nav-submenu">
+            <a href="/games" data-nav-flag="games">Game Sheets</a>
+          </div>
+        </div>
         <a href="news.html">News</a>
         <a href="membership.html">Membership</a>
         <a href="events.html">Events</a>
-        <a href="sponsors.html" class="is-active">Sponsors</a>
+        <div class="nav-group">
+          <a href="sponsors.html" class="is-active">Sponsors</a>
+          <div class="nav-submenu">
+            <a href="donation.html">Make a Donation</a>
+          </div>
+        </div>
         <a href="shop.html">Store</a>
       </nav>
       <div class="header-tools">
@@ -104,6 +114,26 @@
             <p class="note">Member federation</p>
           </div>
         </div>
+
+        <div class="stat-row">
+          <div class="stat-figure">
+            <span class="stat-value">300+</span>
+            <span class="stat-label">Registered players</span>
+          </div>
+          <div class="stat-figure">
+            <span class="stat-value">500</span>
+            <span class="stat-label">Average attendance</span>
+          </div>
+          <div class="stat-figure">
+            <span class="stat-value">2,500</span>
+            <span class="stat-label">Record attendance</span>
+          </div>
+        </div>
+        <p class="stat-note">
+          Figures from the federation's own partnership materials. Events are
+          covered by local and international media, which is where a partner's
+          visibility actually comes from.
+        </p>
       </section>
 
       <section class="section reveal">
@@ -156,6 +186,103 @@
         </div>
       </section>
 
+      <!-- The federation's three visibility families and their four tiers,
+           taken from its partnership deck. Prices are the deck's own; they are
+           a business decision rather than a technical one, so they live in one
+           block that can be lifted out without disturbing anything else. -->
+      <section class="section reveal">
+        <div class="section-heading">
+          <p class="eyebrow">What You Get</p>
+          <h2>Three ways to be seen</h2>
+          <p>
+            Each plan comes in four tiers - Cedar, Gold, Silver and Bronze. The
+            number of partners per tier is capped on purpose: space on a jersey
+            is finite, and a partnership that everyone has is not worth having.
+          </p>
+        </div>
+
+        <div class="card-grid">
+          <article class="info-card">
+            <h3>On the uniform</h3>
+            <p>
+              Your mark travels with the national team to every event it plays,
+              at home and abroad.
+            </p>
+            <ul>
+              <li>Cedar - front of the official jersey, plus helmet and shorts</li>
+              <li>Gold - sleeve of the official jersey</li>
+              <li>Cedar and Gold - practice jerseys</li>
+              <li>All four tiers - off-ice attire and an invitation to every federation event</li>
+            </ul>
+            <p class="price">$3,500 - $15,000</p>
+          </article>
+
+          <article class="info-card">
+            <h3>At the events</h3>
+            <p>
+              Tournaments, training camps, exhibition games and fundraisers,
+              run through the year.
+            </p>
+            <ul>
+              <li>Cedar - official sponsor, ceremonial puck drop, logo on promotional items, photos and video</li>
+              <li>Cedar and Gold - game-day posters, digital promotion, poster at the entrance</li>
+              <li>Cedar, Gold and Silver - official programme and social media promotion</li>
+              <li>All four tiers - a booth, tickets and an acknowledgement during the event</li>
+            </ul>
+            <p class="price">$250 - $10,000</p>
+          </article>
+
+          <article class="info-card">
+            <h3>Through our channels</h3>
+            <p>
+              The website, the newsletter and the federation's social accounts,
+              reaching people who follow Lebanese hockey closely.
+            </p>
+            <ul>
+              <li>Cedar - a banner on this website and a promotional video or documentary</li>
+              <li>Cedar and Gold - a player interview video, a blog, an article about your company</li>
+              <li>Cedar, Gold and Silver - a newsletter article and your logo on the newsletter</li>
+              <li>All four tiers - your logo on this website and mentions on social media</li>
+            </ul>
+            <p class="price">$500 - $6,000</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading">
+          <p class="eyebrow">Flexibility</p>
+          <h2>Shaping it around you</h2>
+        </div>
+
+        <div class="card-grid">
+          <article class="info-card">
+            <h3>Take more than one</h3>
+            <p>
+              Two plans at the same tier take 10% off. Three take 20%. The
+              tiers have to match for the discount to apply.
+            </p>
+          </article>
+          <article class="info-card">
+            <h3>Support in kind</h3>
+            <p>
+              Products, media support, accommodation, ground and air transport,
+              venues, catering and equipment all count towards the same
+              thresholds as a cash contribution, and are recognised the same
+              way.
+            </p>
+          </article>
+          <article class="info-card">
+            <h3>Build your own</h3>
+            <p>
+              If none of the three fits, say so. Elements can be added or
+              dropped, or a plan built from scratch around what you actually
+              want out of it.
+            </p>
+          </article>
+        </div>
+      </section>
+
       <section class="section reveal">
         <div class="section-heading">
           <p class="eyebrow">Partnership Tiers</p>
@@ -182,11 +309,10 @@
         <div>
           <p class="eyebrow">Ready To Partner?</p>
           <h2>Let's grow the game together.</h2>
-          <p>Reach out to discuss partnership tiers, or support a player directly with a donation.</p>
+          <p>Tell us which plan fits, or what you had in mind instead.</p>
         </div>
         <div class="hero-actions">
           <a class="button primary" href="mailto:info@lebanonhockey.com?subject=Partnership%20Inquiry">Partner With Us</a>
-          <a class="button secondary" href="donation.html">Make a Donation</a>
         </div>
       </section>
     </main>
@@ -244,6 +370,7 @@
     <script src="./assets/api.js"></script>
 
     <script src="./assets/app.js"></script>
+    <script src="./assets/hero.js"></script>
 
     <script src="./assets/chat.js"></script>
 

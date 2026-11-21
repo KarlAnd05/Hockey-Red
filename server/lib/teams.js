@@ -12,7 +12,9 @@
  * markup and rewriting them is a separate piece of work.
  */
 import { db } from '../db.js';
+import { TEAM_PHOTOS, galleryText } from './photos.js';
 import { config } from '../config.js';
+import { escapeHtml, absolute, textToHtml, lineList, intoShell, socialMeta } from './page.js';
 
 export const SQUADS = {
   national: 'National Team',
@@ -46,9 +48,14 @@ export function slugify(value) {
  *
  * Two players really can share a name, and a name is the only thing we have to
  * build a slug from, so the collision case is ordinary rather than exotic.
+ *
+ * `fallback` is the root to use when `base` slugifies to nothing at all. It
+ * defaults to the original behaviour so no existing caller changes, but a table
+ * of games needs its own word - a dateless game against nobody would otherwise
+ * be published at /games/player.
  */
-export function uniqueSlug(base, table, excludeId = null) {
-  const root = slugify(base) || 'player';
+export function uniqueSlug(base, table, excludeId = null, fallback = 'player') {
+  const root = slugify(base) || fallback;
   const sql =
     excludeId === null
       ? `SELECT 1 FROM ${table} WHERE slug = ?`
@@ -127,6 +134,7 @@ export function serialiseTeam(team, extra = {}) {
     photoAlt: team.photo_alt,
     staff: team.staff || '',
     honours: team.honours || '',
+    gallery: parseGallery(team.gallery),
     program: team.program,
     active: Boolean(team.active),
     sortOrder: team.sort_order,
@@ -187,6 +195,11 @@ export function groupBySquad(players) {
 /* --------------------------------------------------------------------------
    Seeding and migration
    -------------------------------------------------------------------------- */
+/* The four programmes, described as the federation's own About Us document
+   describes them. Changing a description here only affects a database that has
+   not been seeded yet - seedTeams() skips a team that already exists - so the
+   same text is also in lib/attach-copy.js, which updates a live database once.
+   Keep the two in step. */
 const SEED_TEAMS = [
   {
     slug: 'womens',
@@ -194,8 +207,10 @@ const SEED_TEAMS = [
     program: 'womens',
     tagline: 'National Team and Next Generation',
     description:
-      "Lebanon's women's programme fields a senior national team and a Next Generation squad that brings " +
-      'through the players behind it. Both draw on Lebanese players at home and across the diaspora.',
+      "The women's programme began with players around the world asking for one, after the men's team " +
+      'drew attention to Lebanese hockey. It now fields a senior national team and a Next Generation ' +
+      'squad, and has played friendlies and development programmes alongside Hockey Qu\u00e9bec and Hockey ' +
+      'Canada.',
   },
   {
     slug: 'mens',
@@ -203,8 +218,9 @@ const SEED_TEAMS = [
     program: 'mens',
     tagline: 'Senior national team',
     description:
-      "The men's national programme represents Lebanon in international competition and carries the " +
-      'federation flag at tournaments abroad.',
+      "The federation's best-known programme, followed well beyond the Lebanese community. The squad is " +
+      'drawn from eastern and western Canada, the United States, France, Sweden and the United Arab ' +
+      'Emirates - different routes to the same jersey, and the same reason for wearing it.',
   },
   {
     slug: 'youth',
@@ -212,8 +228,9 @@ const SEED_TEAMS = [
     program: 'youth',
     tagline: 'Development and pathway',
     description:
-      'The youth programme is where most Lebanese players start: learn-to-play, development camps, and ' +
-      'the pathway into the national squads.',
+      'Youth development sits at the centre of the federation. It gives young players somewhere to build ' +
+      'their skills and be seen internationally, with coaching aimed at the national squads. This is ' +
+      'where most Lebanese players start.',
   },
   {
     slug: 'panthers',
@@ -221,20 +238,30 @@ const SEED_TEAMS = [
     program: 'panthers',
     tagline: 'Club team',
     description:
-      'The Lebanese Panthers carry the federation into club competition and community games through the season.',
+      'The club programme is for Lebanese players who want a competitive environment to train in through ' +
+      'the season. It is the foundation under the national squads: where local talent is developed and ' +
+      'prepared for international tournaments.',
   },
 ];
 
 export function seedTeams() {
   const insert = db.prepare(
-    `INSERT INTO teams (slug, name, tagline, description, program, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?)`
+    `INSERT INTO teams (slug, name, tagline, description, photo_url, photo_alt, gallery, program, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
 
   let added = 0;
   SEED_TEAMS.forEach((t, i) => {
     if (findTeamBySlug(t.slug)) return;
-    insert.run(t.slug, t.name, t.tagline, t.description, t.program, i);
+    /* The portrait and the gallery both come from lib/photos.js, so a fresh
+       database and an already-seeded one (lib/attach-panthers.js) cannot end
+       up disagreeing about which picture belongs where. A team with no entry
+       there seeds with '' and renders without pictures. */
+    const photo = TEAM_PHOTOS[t.slug];
+    insert.run(
+      t.slug, t.name, t.tagline, t.description,
+      photo?.url ?? '', photo?.alt ?? '', galleryText(t.slug), t.program, i
+    );
     added += 1;
   });
 
@@ -320,78 +347,14 @@ export function migrateRosterToPlayers() {
 /* --------------------------------------------------------------------------
    Server-rendered pages
    --------------------------------------------------------------------------
-   Same approach as lib/news.js: a player page is a page a person and a
-   link-preview crawler visit, and crawlers do not run JavaScript, so the title,
-   description and image have to be in the HTML that leaves the server.
+   A team or a player page is one both a person and a link-preview crawler
+   visit, and crawlers do not run JavaScript, so the title, description and
+   image have to be in the HTML that leaves the server.
+
+   escapeHtml, absolute, textToHtml, lineList, intoShell and socialMeta all
+   live in lib/page.js now, shared with the news and game-sheet pages, which
+   render the same way for the same reason.
    -------------------------------------------------------------------------- */
-const escapeHtml = (value) =>
-  String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-
-const absolute = (url) => {
-  const raw = String(url || '').trim();
-  if (!raw) return '';
-  if (/^https?:\/\//i.test(raw)) return raw;
-  return `${config.appUrl}${raw.startsWith('/') ? '' : '/'}${raw}`;
-};
-
-/** Plain paragraphs from a textarea, the same shape news bodies use. */
-function textToHtml(text) {
-  return String(text || '')
-    .split(/\n{2,}/)
-    .map((block) => block.trim())
-    .filter(Boolean)
-    .map((block) => `<p>${escapeHtml(block).replace(/\n/g, '<br>')}</p>`)
-    .join('\n          ');
-}
-
-/**
- * Put a rendered <main> into a real page shell.
- *
- * The shell is a page written for the site root, so its asset and nav links are
- * relative. These pages live one level down at /teams/<slug> and /players/<slug>,
- * where "./assets/styles.css" resolves to "/teams/assets/styles.css" and 404s,
- * taking the stylesheet, fonts, logo and scripts with it. Rewriting to absolute
- * fixes all of them at once - deliberately not <base href="/">, which would do
- * the same job but send the "#main" skip link to the homepage.
- */
-function intoShell(shellHtml, { title, description, meta, main }) {
-  let html = shellHtml;
-
-  html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`);
-  html = html.replace(
-    /<meta\s+name="description"[\s\S]*?>/i,
-    `<meta name="description" content="${escapeHtml(description)}">`
-  );
-  html = html.replace('</head>', `  ${meta}\n  </head>`);
-  html = html.replace(/<main id="main">[\s\S]*?<\/main>/i, `<main id="main">${main}\n    </main>`);
-
-  return html
-    .replace(/(src|href)="\.\/(assets\/)/g, '$1="/$2')
-    .replace(/(href)="([A-Za-z0-9_-]+\.html)"/g, '$1="/$2"');
-}
-
-function socialMeta({ title, description, image, url, type = 'website' }) {
-  return [
-    `<link rel="canonical" href="${escapeHtml(url)}">`,
-    `<meta property="og:type" content="${escapeHtml(type)}">`,
-    `<meta property="og:site_name" content="Lebanon Hockey">`,
-    `<meta property="og:title" content="${escapeHtml(title)}">`,
-    `<meta property="og:description" content="${escapeHtml(description)}">`,
-    `<meta property="og:url" content="${escapeHtml(url)}">`,
-    image ? `<meta property="og:image" content="${escapeHtml(image)}">` : '',
-    `<meta name="twitter:card" content="${image ? 'summary_large_image' : 'summary'}">`,
-    `<meta name="twitter:title" content="${escapeHtml(title)}">`,
-    `<meta name="twitter:description" content="${escapeHtml(description)}">`,
-    image ? `<meta name="twitter:image" content="${escapeHtml(image)}">` : '',
-  ]
-    .filter(Boolean)
-    .join('\n    ');
-}
 
 /** The photo, or the player's initials. Never a broken image frame. */
 function playerPortrait(player, className) {
@@ -431,21 +394,57 @@ function playerCard(player) {
           </a>`;
 }
 
-/** "Name - Role" per line, rendered as a definition list. */
-function lineList(text, className) {
-  const rows = String(text || '')
+/**
+ * "url - caption" per line, as teams.gallery stores it.
+ *
+ * Split on the FIRST " - " only: a caption may well contain one of its own,
+ * and a URL never does. A line with no caption is dropped rather than shown
+ * with empty alt text - a picture nobody has described is worse than no
+ * picture for anyone using a screen reader.
+ */
+function parseGallery(text) {
+  return String(text || '')
     .split(/\r?\n/)
-    .map((l) => l.trim())
+    .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      const [left, ...rest] = line.split(' - ');
-      const right = rest.join(' - ');
-      return right
-        ? `<div><dt>${escapeHtml(left)}</dt><dd>${escapeHtml(right)}</dd></div>`
-        : `<div><dt>${escapeHtml(left)}</dt><dd></dd></div>`;
-    });
+      const at = line.indexOf(' - ');
+      if (at < 0) return null;
+      return { url: line.slice(0, at).trim(), caption: line.slice(at + 3).trim() };
+    })
+    .filter((row) => row && row.url && row.caption);
+}
 
-  return rows.length ? `<dl class="${className}">${rows.join('')}</dl>` : '';
+/** The squad portrait, and the pictures below it. */
+function teamPortrait(team) {
+  if (!team.photo_url) return '';
+
+  /* eager, not lazy: this is the first picture on the page and the largest
+     thing painted, so deferring it only delays the page looking finished. */
+  return `<figure class="team-portrait">
+            <img src="${escapeHtml(team.photo_url)}" alt="${escapeHtml(
+              team.photo_alt || team.name
+            )}" loading="eager" decoding="async">
+          </figure>`;
+}
+
+function teamGallery(team) {
+  const rows = parseGallery(team.gallery);
+  if (!rows.length) return '';
+
+  return `<div class="squad-block">
+            <h2 class="squad-heading">In the rink</h2>
+            <div class="team-gallery">
+              ${rows
+                .map(
+                  ({ url, caption }) => `<figure>
+                <img src="${escapeHtml(url)}" alt="${escapeHtml(caption)}" loading="lazy">
+                <figcaption>${escapeHtml(caption)}</figcaption>
+              </figure>`
+                )
+                .join('\n              ')}
+            </div>
+          </div>`;
 }
 
 /**
@@ -514,6 +513,8 @@ export function renderTeamPage(team, players, shellHtml) {
       </section>
 
       <section class="section reveal">
+        ${teamPortrait(team)}
+
         ${team.description ? `<div class="post-article">${textToHtml(team.description)}</div>` : ''}
 
         ${
@@ -555,6 +556,8 @@ export function renderTeamPage(team, players, shellHtml) {
                 .join('\n')
             : `<p class="empty-note">This roster has not been published yet. Check back soon.</p>`
         }
+
+        ${teamGallery(team)}
 
         <div class="section-cta">
           <a class="button primary" href="/membership.html#register">Register to play</a>
@@ -669,9 +672,11 @@ function gameLog(stats) {
                     <td data-label="Date">${escapeHtml(
                       String(g.playedAt || '').slice(0, 10) || 'Date not set'
                     )}</td>
-                    <td data-label="Opponent" class="roster-name">${escapeHtml(g.opponent)}${
-                        g.homeAway === 'away' ? ' <span class="cell-away">(away)</span>' : ''
-                      }</td>
+                    <td data-label="Opponent" class="roster-name">${
+                      g.gameSlug
+                        ? `<a href="/games/${escapeHtml(g.gameSlug)}">${escapeHtml(g.opponent)}</a>`
+                        : escapeHtml(g.opponent)
+                    }${g.homeAway === 'away' ? ' <span class="cell-away">(away)</span>' : ''}</td>
                     <td data-label="Score">${
                       g.scoreFor === null || g.scoreAgainst === null
                         ? '—'

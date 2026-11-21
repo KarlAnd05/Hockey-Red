@@ -8,10 +8,15 @@
  * sitting out of step with the games behind it.
  */
 import { db } from '../db.js';
+import { isSectionVisible } from './settings.js';
 
 /* A line only counts towards games played when the player actually dressed.
    Somebody named on the sheet but scratched should not accrue a game. */
 const PLAYED = 's.played = 1';
+
+/* Home for us is away for them, and neutral ice stays neutral. Used to read a
+   game back from the other bench when a player sat on its opponent roster. */
+const FLIP_SIDE = { home: 'away', away: 'home', neutral: 'neutral' };
 
 /**
  * One player's totals and the games behind them.
@@ -24,16 +29,27 @@ export function statsForPlayer(playerId) {
   const player = db.prepare('SELECT * FROM players WHERE id = ?').get(Number(playerId));
   if (!player) return null;
 
+  /* s.* carries s.side. A sheet now holds up to two squads, so a player can
+     appear on the 'them' side of a game whose opponent, score and home/away
+     are all written from our point of view. The team name is joined for
+     exactly that case: their opponent is us. */
   const rows = db
     .prepare(
       `SELECT s.*, g.opponent, g.played_at, g.venue, g.home_away,
-              g.score_for, g.score_against, g.competition
+              g.score_for, g.score_against, g.competition,
+              g.slug AS game_slug, g.published AS game_published,
+              t.name AS our_team_name
          FROM game_sheet_players s
          JOIN games g ON g.id = s.game_id
+         LEFT JOIN teams t ON t.id = g.team_id
         WHERE s.player_id = ? AND g.status = 'final' AND ${PLAYED}
         ORDER BY (g.played_at = '') ASC, g.played_at DESC, g.id DESC`
     )
     .all(Number(playerId));
+
+  /* A match page is only linkable when the section is on AND that game is
+     published. Read once rather than per row. */
+  const linkable = isSectionVisible('games');
 
   const sum = (key) => rows.reduce((n, r) => n + (Number(r[key]) || 0), 0);
 
@@ -92,23 +108,32 @@ export function statsForPlayer(playerId) {
     savePercentage: shotsAgainst > 0 ? saves / shotsAgainst : null,
     goalsAgainstAverage: rows.length > 0 && shotsAgainst > 0 ? goalsAgainst / rows.length : null,
 
-    log: rows.map((r) => ({
-      gameId: r.game_id,
-      opponent: r.opponent,
-      playedAt: r.played_at,
-      venue: r.venue,
-      competition: r.competition,
-      homeAway: r.home_away,
-      scoreFor: r.score_for,
-      scoreAgainst: r.score_against,
-      goals: Number(r.goals) || 0,
-      assists: Number(r.assists) || 0,
-      points: (Number(r.goals) || 0) + (Number(r.assists) || 0),
-      penaltyMinutes: Number(r.penalty_minutes) || 0,
-      saves: Number(r.saves) || 0,
-      shotsAgainst: Number(r.shots_against) || 0,
-      decision: r.decision || '',
-    })),
+    log: rows.map((r) => {
+      /* An opponent line is the same game read from the other bench. The
+         figures on the line are already theirs; only the three fields that
+         describe the fixture need turning round. */
+      const theirs = r.side === 'them';
+      return {
+        gameId: r.game_id,
+        /* Empty until the match is published, so a public profile can never
+           link into a sheet the federation is still checking. */
+        gameSlug: linkable && r.game_published ? r.game_slug || '' : '',
+        opponent: theirs ? r.our_team_name || 'Lebanon Hockey' : r.opponent,
+        playedAt: r.played_at,
+        venue: r.venue,
+        competition: r.competition,
+        homeAway: theirs ? FLIP_SIDE[r.home_away] || r.home_away : r.home_away,
+        scoreFor: theirs ? r.score_against : r.score_for,
+        scoreAgainst: theirs ? r.score_for : r.score_against,
+        goals: Number(r.goals) || 0,
+        assists: Number(r.assists) || 0,
+        points: (Number(r.goals) || 0) + (Number(r.assists) || 0),
+        penaltyMinutes: Number(r.penalty_minutes) || 0,
+        saves: Number(r.saves) || 0,
+        shotsAgainst: Number(r.shots_against) || 0,
+        decision: r.decision || '',
+      };
+    }),
   };
 }
 

@@ -2,25 +2,10 @@ import { Router } from 'express';
 import { existsSync } from 'node:fs';
 import { db } from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
-import { serialiseOrder } from '../lib/orders.js';
+import { canAccessOrder, serialiseOrder } from '../lib/orders.js';
 import { generateInvoicePdf, invoicePath } from '../lib/invoice.js';
 
 export const ordersRouter = Router();
-
-/**
- * An order is readable by the customer who placed it, by an admin, or by an
- * anonymous buyer who still holds the Stripe session id from the success URL.
- */
-function canAccessOrder(order, req) {
-  if (!order) return false;
-  if (req.user?.role === 'admin') return true;
-  if (order.user_id && order.user_id === req.user?.id) return true;
-
-  const sessionParam = String(req.query.session || '');
-  if (!order.user_id && sessionParam && order.stripe_session_id === sessionParam) return true;
-
-  return false;
-}
 
 /* --------------------------------------------------------------------------
    Order history

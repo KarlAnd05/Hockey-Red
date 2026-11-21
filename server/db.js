@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { NEWS_IMAGES, PRODUCT_IMAGES, productPlaceholder } from './lib/photos.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const rootDir = join(here, '..');
@@ -110,6 +111,7 @@ CREATE TABLE IF NOT EXISTS orders (
   id                    INTEGER PRIMARY KEY AUTOINCREMENT,
   order_number          TEXT NOT NULL UNIQUE,
   user_id               INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  cart_id               INTEGER REFERENCES carts(id) ON DELETE SET NULL,
   email                 TEXT NOT NULL,
   status                TEXT NOT NULL DEFAULT 'pending'
                           CHECK (status IN ('pending', 'paid', 'fulfilled', 'cancelled', 'refunded')),
@@ -123,6 +125,7 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_method        TEXT NOT NULL DEFAULT 'card',
   stripe_session_id     TEXT,
   stripe_payment_intent TEXT,
+  access_token          TEXT NOT NULL DEFAULT '',
   ship_name             TEXT NOT NULL DEFAULT '',
   ship_line1            TEXT NOT NULL DEFAULT '',
   ship_line2            TEXT NOT NULL DEFAULT '',
@@ -521,6 +524,111 @@ CREATE TABLE IF NOT EXISTS game_sheet_players (
 );
 CREATE INDEX IF NOT EXISTS idx_sheet_game ON game_sheet_players(game_id, sort_order);
 
+/* The official IIHF game sheet: goals and penalties, as events.
+
+   One table rather than two. Both carry a side, a period, a clock time and a
+   person; the live-entry screen writes them through one path; and an undo is
+   one DELETE off one ordered list. The columns that apply to only one kind are
+   nullable, which is cheaper than a join and far cheaper than two
+   near-identical tables that drift apart.
+
+   The person is a SHEET LINE, not a player. The line is already what resolves
+   a name from the roster, the membership record or the typed value (see
+   serialiseSheetLine in lib/games.js), it is what lib/stats.js reads, and it
+   means a guest who is on the sheet but not on any roster can still be
+   credited with the goal they scored.
+
+   The opponent may have no squad here at all - a foreign national team is a
+   name and nothing more - so a bare jersey number and an optional name is the
+   whole of what a scorekeeper actually has. Deliberately NOT inactive rows in
+   the players table: statsForPlayer does not filter on active, so the
+   federation's own roster would quietly fill up with strangers.
+
+   ON DELETE SET NULL on every line reference: taking somebody off a sheet must
+   not erase the goal that was scored. The event becomes unattributed, which is
+   visible and fixable, rather than gone.
+
+   offence_code has no CHECK on purpose. Forty-nine literals in a constraint is
+   unreadable, and the IIHF list changes between rule books - which would then
+   mean a table rebuild, exactly what the note above addColumnIfMissing rules
+   out. It is validated against OFFENCE_CODES in lib/game-events.js instead.
+
+   Times are zero-padded MM:SS text and nothing else. Padded string sort is
+   already play order, so a second time_in_seconds column would buy nothing but
+   another thing to keep in step. */
+CREATE TABLE IF NOT EXISTS game_events (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  game_id         INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  kind            TEXT NOT NULL CHECK (kind IN ('goal', 'penalty')),
+  side            TEXT NOT NULL DEFAULT 'us' CHECK (side IN ('us', 'them')),
+  period          TEXT NOT NULL DEFAULT '1'
+                    CHECK (period IN ('1', '2', '3', 'OVT', 'GWS')),
+  time_mmss       TEXT NOT NULL DEFAULT '',
+
+  /* Goals. */
+  scorer_line_id  INTEGER REFERENCES game_sheet_players(id) ON DELETE SET NULL,
+  assist1_line_id INTEGER REFERENCES game_sheet_players(id) ON DELETE SET NULL,
+  assist2_line_id INTEGER REFERENCES game_sheet_players(id) ON DELETE SET NULL,
+  game_situation  TEXT NOT NULL DEFAULT 'EQ'
+                    CHECK (game_situation IN ('EQ', '+1', '+2', '-1', '-2', 'PS', 'EN')),
+
+  /* Penalties. 0 minutes is a penalty shot, which the sheet records as a
+     penalty with no time served. */
+  penalty_line_id INTEGER REFERENCES game_sheet_players(id) ON DELETE SET NULL,
+  minutes         INTEGER NOT NULL DEFAULT 0 CHECK (minutes IN (0, 2, 5, 10, 20)),
+  offence_code    TEXT NOT NULL DEFAULT '',
+  start_mmss      TEXT NOT NULL DEFAULT '',
+  end_mmss        TEXT NOT NULL DEFAULT '',
+
+  /* An opponent with no squad on this site, or anyone not yet matched up. */
+  jersey_number   INTEGER,
+  name            TEXT NOT NULL DEFAULT '',
+
+  /* Idempotency for the live screen's retry queue: a replayed POST that
+     already landed returns the row it made instead of a second goal. */
+  client_id       TEXT NOT NULL DEFAULT '',
+  note            TEXT NOT NULL DEFAULT '',
+  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_events_game ON game_events(game_id, kind, period, time_mmss);
+CREATE INDEX IF NOT EXISTS idx_events_scorer ON game_events(scorer_line_id);
+CREATE INDEX IF NOT EXISTS idx_events_a1 ON game_events(assist1_line_id);
+CREATE INDEX IF NOT EXISTS idx_events_a2 ON game_events(assist2_line_id);
+CREATE INDEX IF NOT EXISTS idx_events_pen ON game_events(penalty_line_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_events_client ON game_events(client_id) WHERE client_id <> '';
+
+/* The goalkeeper record, per period, per side.
+
+   The only place shots on goal can come from. The official sheet counts saves
+   and goals against; shots against is their sum. A team's SOG for a period is
+   therefore the sum across the OTHER side's goalkeepers, which is why both
+   sides live in one table rather than ours sitting on the sheet line.
+
+   goals_against is typed, not counted from the goal events: an empty-net goal
+   is scored against no goalkeeper at all, and a period with a change splits
+   the goals between two of them.
+
+   No UNIQUE constraint. SQLite compares NULLs as distinct, so
+   UNIQUE(game_id, side, period, sheet_line_id) would not actually stop a
+   duplicate row for an opponent keeper who has no line - the same trap
+   game_sheet_players' own UNIQUE(game_id, player_id) falls into for guests.
+   One row per goalkeeper per period is enforced in the route. */
+CREATE TABLE IF NOT EXISTS game_goalies (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  game_id       INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  side          TEXT NOT NULL DEFAULT 'us' CHECK (side IN ('us', 'them')),
+  period        TEXT NOT NULL DEFAULT '1'
+                  CHECK (period IN ('1', '2', '3', 'OVT', 'GWS')),
+  sheet_line_id INTEGER REFERENCES game_sheet_players(id) ON DELETE SET NULL,
+  jersey_number INTEGER,
+  name          TEXT NOT NULL DEFAULT '',
+  minutes       INTEGER NOT NULL DEFAULT 0,
+  saves         INTEGER NOT NULL DEFAULT 0,
+  goals_against INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_goalies_game ON game_goalies(game_id, side, period);
+CREATE INDEX IF NOT EXISTS idx_goalies_line ON game_goalies(sheet_line_id);
+
 /* ==========================================================================
    Sponsors
    --------------------------------------------------------------------------
@@ -605,6 +713,31 @@ addColumnIfMissing('donations', 'public_name', "TEXT NOT NULL DEFAULT ''");
    is exactly what the default says. */
 addColumnIfMissing('orders', 'payment_method', "TEXT NOT NULL DEFAULT 'card'");
 
+/* Letting a buyer back into the order they just placed.
+
+   canAccessOrder() used to admit an anonymous buyer only when the ?session= in
+   the return URL matched the order's Stripe session id. An e-Transfer order has
+   no Stripe session, so that test could never pass: the site told the buyer that
+   the order they had placed thirty seconds ago was not theirs. access_token is
+   the bearer secret that replaces it - whoever holds it may read that one order.
+
+   It is stored in the clear, which the other bearer tokens here are not. That is
+   deliberate and narrow. A session token, a password reset and a donation manage
+   link all grant authority BEYOND the row they sit on - a whole account, or the
+   power to cancel a subscription - so a stolen database must not hand those over.
+   This one grants read access to exactly the row it lives on, and anyone who can
+   read the row already has its contents, so hashing it would protect nothing. It
+   would cost something though: the raw token has to go into the links in the
+   buyer's emails, and those are sent long after the order was created, by the
+   Stripe webhook and by the admin screen, neither of which ever saw it.
+
+   cart_id records the cart the order was built from. Without it markOrderPaid
+   could only guess - "the signed-in buyer's newest cart" - and a guest has no
+   account, so their basket was never emptied: the goods they had just paid for
+   sat there inviting them to buy the same thing again. */
+addColumnIfMissing('orders', 'access_token', "TEXT NOT NULL DEFAULT ''");
+addColumnIfMissing('orders', 'cart_id', 'INTEGER REFERENCES carts(id) ON DELETE SET NULL');
+
 /* The programme pages were merged into Our Teams, so a team row now has to
    carry what those pages carried: who coaches it, and what it has won. Both
    are one entry per line ("Name - Role", "Year - Result") rather than two more
@@ -612,6 +745,16 @@ addColumnIfMissing('orders', 'payment_method', "TEXT NOT NULL DEFAULT 'card'");
    inside them. */
 addColumnIfMissing('teams', 'staff', "TEXT NOT NULL DEFAULT ''");
 addColumnIfMissing('teams', 'honours', "TEXT NOT NULL DEFAULT ''");
+
+/* More than one photograph per team.
+
+   teams.photo_url is the single portrait at the top of a profile. A squad has
+   more pictures than that, and they were sitting in a folder with nowhere to
+   go. Same shape as staff and honours above - one entry per line, "url -
+   caption" - for the same reason: a short list rendered verbatim, with nothing
+   querying inside it. A separate table would buy indexing nobody needs and
+   cost a join on every team page. */
+addColumnIfMissing('teams', 'gallery', "TEXT NOT NULL DEFAULT ''");
 
 /* Player statistics.
 
@@ -634,6 +777,71 @@ addColumnIfMissing('game_sheet_players', 'shots_against', 'INTEGER NOT NULL DEFA
 addColumnIfMissing('game_sheet_players', 'saves', 'INTEGER NOT NULL DEFAULT 0');
 addColumnIfMissing('game_sheet_players', 'decision', "TEXT NOT NULL DEFAULT ''");
 addColumnIfMissing('game_sheet_players', 'played', 'INTEGER NOT NULL DEFAULT 1');
+
+/* Every player profile page reads this table by player_id, and so does the
+   derivation in lib/stats.js. It has never had an index, so each profile was a
+   full scan of every sheet line ever recorded. */
+db.exec('CREATE INDEX IF NOT EXISTS idx_sheet_player ON game_sheet_players(player_id)');
+
+/* The official IIHF game sheet, part two: the header the printed form carries
+   and this table did not.
+
+   All defaulted, so every game already in the database stays exactly as it is.
+
+   - published is the gate on the public page, and is deliberately NOT the
+     existing status column. status answers "did this game happen and is the
+     record complete"; published answers "may the public see the sheet". They
+     cross: final-but-unpublished is the normal state while a coach checks the
+     penalty list over. More decisively, lib/stats.js counts status = 'final',
+     so folding the two together would mean one switch both revealed the page
+     AND pushed every named player's career total, with no way to do either on
+     its own. Default 0, so nothing becomes public on deploy - the same
+     reasoning as donations.display_publicly above.
+
+   - events_mode records which side of the sheet is authoritative, rather than
+     inferring it from whether any events exist. Inference breaks twice: a
+     genuine 0-0 game with no penalties has no events but IS event-entered, and
+     deleting the last event from an event-entered game would silently revert
+     it to stale typed totals nobody will ever look at again.
+
+   - opponent_team_id is set when the opponent is another team on this site, so
+     an internal fixture records both squads and credits both sets of players.
+     Null means a foreign or unlisted opponent and the free-text opponent name
+     is all there is.
+
+   - officials and the two staff columns are one entry per line, "Role - Name",
+     the same shape as teams.staff and teams.honours and for the same reason: a
+     short list rendered verbatim with nothing querying inside it. lineList()
+     in lib/page.js already renders it. Ten more columns would buy nothing.
+
+   - clock_counts is 'down' (20:00 to 0:00, the IIHF default) or 'up'. It only
+     affects the computed end of a penalty and the order events read in. */
+addColumnIfMissing('games', 'slug', "TEXT NOT NULL DEFAULT ''");
+addColumnIfMissing('games', 'published', 'INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('games', 'events_mode', 'INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('games', 'opponent_team_id', 'INTEGER REFERENCES teams(id) ON DELETE SET NULL');
+addColumnIfMissing('games', 'event_name', "TEXT NOT NULL DEFAULT ''");
+addColumnIfMissing('games', 'game_number', "TEXT NOT NULL DEFAULT ''");
+addColumnIfMissing('games', 'start_time', "TEXT NOT NULL DEFAULT ''");
+addColumnIfMissing('games', 'end_time', "TEXT NOT NULL DEFAULT ''");
+addColumnIfMissing('games', 'spectators', 'INTEGER');
+addColumnIfMissing('games', 'team_colour', "TEXT NOT NULL DEFAULT ''");
+addColumnIfMissing('games', 'opponent_colour', "TEXT NOT NULL DEFAULT ''");
+addColumnIfMissing('games', 'team_staff', "TEXT NOT NULL DEFAULT ''");
+addColumnIfMissing('games', 'opponent_staff', "TEXT NOT NULL DEFAULT ''");
+addColumnIfMissing('games', 'officials', "TEXT NOT NULL DEFAULT ''");
+addColumnIfMissing('games', 'clock_counts', "TEXT NOT NULL DEFAULT 'down'");
+
+/* A sheet now holds up to two squads, so a line has to say which one it is on.
+   Default 'us' is right for every line already recorded.
+
+   line_number is the sheet's L column (forward line or defence pair, 1-4),
+   best_player its BP badge, minutes_in_play a goalkeeper's MIP. The existing
+   role column already covers C, A and the starting goaltender. */
+addColumnIfMissing('game_sheet_players', 'side', "TEXT NOT NULL DEFAULT 'us'");
+addColumnIfMissing('game_sheet_players', 'line_number', 'INTEGER');
+addColumnIfMissing('game_sheet_players', 'best_player', 'INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('game_sheet_players', 'minutes_in_play', 'INTEGER NOT NULL DEFAULT 0');
 
 addColumnIfMissing('players', 'prior_games', 'INTEGER NOT NULL DEFAULT 0');
 addColumnIfMissing('players', 'prior_goals', 'INTEGER NOT NULL DEFAULT 0');
@@ -791,9 +999,10 @@ export function seedCatalogue() {
       product.description,
       product.price_cents,
       categoryIds.get(product.category) ?? null,
-      // Branded SVG placeholder until real product photography is supplied;
-      // an admin can point this at any image path.
-      `/api/placeholder/${product.slug}.svg`,
+      /* The photograph the old store used, from lib/photos.js. A product with
+         no entry there - one added later in the admin - falls back to the
+         branded SVG placeholder, which an admin can then repoint. */
+      PRODUCT_IMAGES[product.slug] ?? productPlaceholder(product.slug),
       product.stock,
       product.featured ?? 0,
       product.badge ?? '',
@@ -879,14 +1088,20 @@ export function seedNews() {
 
   const insert = db.prepare(`
     INSERT INTO news_posts
-      (slug, title, category, excerpt, body, author, contact_email, contact_phone, published_at, sort_order)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (slug, title, category, excerpt, body, author, contact_email, contact_phone, published_at,
+       image_url, image_alt, sort_order)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   for (const post of SEED_NEWS) {
+    /* The portrait that ran with the post on the old site. Empty strings when
+       a post has none: news.js reads image_url to decide whether to emit the
+       <img> and the og:image at all, so '' is the right absent value. */
+    const image = NEWS_IMAGES[post.slug];
     insert.run(
       post.slug, post.title, post.category, post.excerpt, post.body,
-      post.author, post.contact_email, post.contact_phone, post.published_at, post.sort_order
+      post.author, post.contact_email, post.contact_phone, post.published_at,
+      image?.url ?? '', image?.alt ?? '', post.sort_order
     );
   }
 

@@ -15,6 +15,20 @@ import { findThread } from './chat.js';
 import { findRegistration, TIERS } from './registrations.js';
 
 /**
+ * The buyer's link to their own order.
+ *
+ * It has to carry the access token: these emails arrive days after checkout,
+ * often opened on a different device, and a guest has no account to sign in to.
+ * Reading the token off the row is why it is stored in the clear - see the note
+ * on the column in server/db.js. Orders that predate the column get the plain
+ * link, which still works for a signed-in buyer.
+ */
+function orderLink(order) {
+  const url = `${config.appUrl}/order-confirmation.html?order=${order.id}`;
+  return order.access_token ? `${url}&token=${encodeURIComponent(order.access_token)}` : url;
+}
+
+/**
  * The two emails an order produces: one for the customer, one for the shop.
  *
  * Called from markOrderPaid(), which is idempotent, so exactly one pair goes
@@ -48,7 +62,7 @@ export async function sendOrderEmails(orderId) {
       `Your invoice is attached as a PDF.`,
     bodyHtml: orderTable + address,
     ctaLabel: 'View your order',
-    ctaUrl: `${config.appUrl}/order-confirmation.html?order=${order.id}`,
+    ctaUrl: orderLink(order),
     footNote:
       `All sales are final &mdash; see our <a href="${config.appUrl}/refund-policy.html" style="color:#c8102e;">refund policy</a>. ` +
       `If anything arrives faulty, damaged or not what you ordered, tell us within 14 days and we will replace or refund it in full. ` +
@@ -420,7 +434,7 @@ export async function sendEtransferInstructions(orderId) {
       `Send the e-Transfer below and we will confirm as soon as it arrives - usually within a working day.`,
     bodyHtml: steps + renderOrderTable(order, items) + renderAddress(order),
     ctaLabel: 'View your order',
-    ctaUrl: `${config.appUrl}/order-confirmation.html?order=${order.id}`,
+    ctaUrl: orderLink(order),
     footNote:
       `Please include the order number ${escapeHtml(order.order_number)} in the transfer message, or we may not be ` +
       `able to match your payment. Nothing ships until the transfer is received. ` +

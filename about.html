@@ -32,11 +32,21 @@
       <nav id="site-nav" class="site-nav" aria-label="Primary navigation">
         <a href="index.html">Home</a>
         <a href="about.html" class="is-active">About</a>
-        <a href="teams.html">Our Teams</a>
+        <div class="nav-group">
+          <a href="teams.html">Our Teams</a>
+          <div class="nav-submenu">
+            <a href="/games" data-nav-flag="games">Game Sheets</a>
+          </div>
+        </div>
         <a href="news.html">News</a>
         <a href="membership.html">Membership</a>
         <a href="events.html">Events</a>
-        <a href="sponsors.html">Sponsors</a>
+        <div class="nav-group">
+          <a href="sponsors.html">Sponsors</a>
+          <div class="nav-submenu">
+            <a href="donation.html">Make a Donation</a>
+          </div>
+        </div>
         <a href="shop.html">Store</a>
       </nav>
       <div class="header-tools">
@@ -80,9 +90,12 @@
           <p class="eyebrow">Where We're Headed</p>
           <h2>Building for the future</h2>
           <p>
-            Recognized by Lebanon's Ministry of Sports, the IIHF, and the
-            Lebanese Olympic Committee, the federation is working toward a
-            permanent home for the sport in Lebanon.
+            A non-profit, mandated by Lebanon's Ministry of Sports and the
+            Lebanese Olympic Committee and recognised by the IIHF as its
+            official representative in Lebanon. The federation runs from
+            Montreal, close to both the diaspora and the North American
+            institutions it works with, while building toward a permanent home
+            for the sport in Lebanon.
           </p>
         </div>
 
@@ -94,10 +107,212 @@
         </div>
       </section>
 
+      <!-- Why the federation exists, from its own About Us document. This sits
+           above the history rather than inside the programmes page because it
+           is the reason behind all four programmes, not a feature of any one
+           of them. -->
       <section class="section reveal tinted">
+        <div class="section-heading">
+          <p class="eyebrow">Beyond The Rink</p>
+          <h2>Hockey as a bridge between communities</h2>
+          <p>
+            At first glance hockey may seem distant from Lebanese roots. That
+            distance is the point: the game belongs to no single community, so
+            it can be shared by all of them. The federation is a non-profit,
+            and it treats fair play, respect, equality and diversity as part of
+            the work - participation open regardless of background or means.
+          </p>
+        </div>
+
+        <div class="card-grid">
+          <article class="info-card">
+            <h3>A route into Canadian life</h3>
+            <p>
+              Hockey crosses cultural and linguistic barriers. Young Lebanese
+              players pick up the skills of the sport and, with them, the
+              habits of teamwork, perseverance and respect that carry well
+              beyond it.
+            </p>
+          </article>
+          <article class="info-card">
+            <h3>Where communities meet</h3>
+            <p>
+              Families gather at the arena and argue happily about the last
+              shift. Lebanese players on local teams become ambassadors for
+              their heritage while taking their own place in the Canadian
+              mosaic.
+            </p>
+          </article>
+          <article class="info-card">
+            <h3>Integration runs both ways</h3>
+            <p>
+              Canadians who welcome these players get to know a culture they
+              might not otherwise meet, and Lebanese families feel more at home
+              in an adopted country. Neither side does it alone.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading">
+          <p class="eyebrow">Identity &amp; Reach</p>
+          <h2>More than a team sheet</h2>
+        </div>
+
+        <div class="card-grid">
+          <article class="info-card">
+            <h3>The cedar's colours</h3>
+            <p>
+              The uniform puts the country's cedar front and centre, with the
+              national red and white worked through the details. Home, away and
+              a limited edition - one set of colours, carried onto
+              international ice.
+            </p>
+          </article>
+          <article class="info-card">
+            <h3>On the big screen</h3>
+            <p>
+              A Radio-Canada documentary directed by Frédéric Nassif, a
+              Quebecer of Lebanese origin, follows a national team drawn from
+              every corner of the world, and looks at immigration and
+              integration through the lens of hockey.
+            </p>
+          </article>
+          <article class="info-card">
+            <h3>Based in Montreal</h3>
+            <p>
+              Running operations from Montreal keeps the federation close to the
+              diaspora and to the North American coaches, clubs and
+              institutions it works with.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <!-- The federation's own account of how it got here, in the order it
+           happened. Built on .schedule-row rather than on a timeline component
+           of its own: that component is already a dated row with a label, a
+           heading and a line of prose, which is exactly what a milestone is. -->
+      <section class="section reveal tinted">
+        <div class="section-heading">
+          <p class="eyebrow">How We Got Here</p>
+          <h2>From a friendly against Haiti to the IIHF</h2>
+          <p>
+            Eight years from a single exhibition game to a recognised national
+            federation with three international medals.
+          </p>
+        </div>
+
+        <div class="history-list">
+          <div class="schedule-row">
+            <div class="schedule-when">
+              <span class="schedule-kind">First game</span>
+              <span class="schedule-date">May 2017</span>
+            </div>
+            <div class="schedule-body">
+              <h3>A friendly against Haiti</h3>
+              <p>A friendly ice hockey game against Haiti, played before the federation formally existed.</p>
+            </div>
+          </div>
+          <div class="schedule-row">
+            <div class="schedule-when">
+              <span class="schedule-kind">Founded</span>
+              <span class="schedule-date">May 2018</span>
+            </div>
+            <div class="schedule-body">
+              <h3>The federation is established</h3>
+              <p>LIHF is founded, following the exhibition games and club tournament activity of the year before.</p>
+            </div>
+          </div>
+          <div class="schedule-row">
+            <div class="schedule-when">
+              <span class="schedule-kind">Recognition</span>
+              <span class="schedule-date">October 2018</span>
+            </div>
+            <div class="schedule-body">
+              <h3>Lebanon's Ministry of Sports recognises the federation</h3>
+              <p>The ministerial decree recognising LIHF, renewed on 14 July 2022.</p>
+            </div>
+          </div>
+          <div class="schedule-row">
+            <div class="schedule-when">
+              <span class="schedule-kind">Programme</span>
+              <span class="schedule-date">December 2018</span>
+            </div>
+            <div class="schedule-body">
+              <h3>The women's programme launches</h3>
+              <p>The women's programme begins at McGill University.</p>
+            </div>
+          </div>
+          <div class="schedule-row">
+            <div class="schedule-when">
+              <span class="schedule-kind">Recognition</span>
+              <span class="schedule-date">September 2019</span>
+            </div>
+            <div class="schedule-body">
+              <h3>Associate member of the IIHF</h3>
+              <p>LIHF becomes an associate member of the International Ice Hockey Federation.</p>
+            </div>
+          </div>
+          <div class="schedule-row">
+            <div class="schedule-when">
+              <span class="schedule-kind">Recognition</span>
+              <span class="schedule-date">February 2020</span>
+            </div>
+            <div class="schedule-body">
+              <h3>Member of the Lebanese Olympic Committee</h3>
+              <p>The federation joins the Lebanese Olympic Committee.</p>
+            </div>
+          </div>
+          <div class="schedule-row">
+            <div class="schedule-when">
+              <span class="schedule-kind">Recognition</span>
+              <span class="schedule-date">2021</span>
+            </div>
+            <div class="schedule-body">
+              <h3>Elected to an IIHF working group</h3>
+              <p>LIHF is elected to an IIHF Associate Committee working group alongside other national federations.</p>
+            </div>
+          </div>
+          <div class="schedule-row">
+            <div class="schedule-when">
+              <span class="schedule-kind">Result</span>
+              <span class="schedule-date">May 2023</span>
+            </div>
+            <div class="schedule-body">
+              <h3>Gold at the Arab Nation Cup</h3>
+              <p>The men's national team wins the Arab Nation Cup in Kuwait.</p>
+            </div>
+          </div>
+          <div class="schedule-row">
+            <div class="schedule-when">
+              <span class="schedule-kind">Result</span>
+              <span class="schedule-date">May 2025</span>
+            </div>
+            <div class="schedule-body">
+              <h3>Bronze at the Dream Nation Cup</h3>
+              <p>The women's national team takes bronze in New Jersey.</p>
+            </div>
+          </div>
+          <div class="schedule-row">
+            <div class="schedule-when">
+              <span class="schedule-kind">Result</span>
+              <span class="schedule-date">June 2025</span>
+            </div>
+            <div class="schedule-body">
+              <h3>Bronze at the Kazan Islamic Tournament</h3>
+              <p>The men's national team takes bronze in the three-versus-three event.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section reveal">
         <div class="section-heading">
           <p class="eyebrow">Federation Leadership</p>
           <h2>Board &amp; Management</h2>
+          <p>The federation's board and management, by office.</p>
         </div>
 
         <div class="card-grid">
@@ -130,8 +345,67 @@
             <p>Director, Public Relations</p>
           </article>
           <article class="info-card">
+            <h3>Wissam Salaman</h3>
+            <p>Director, Digital Marketing</p>
+          </article>
+          <article class="info-card">
             <h3>Bachir Kazan</h3>
             <p>Director, Legal Affairs</p>
+          </article>
+          <article class="info-card">
+            <h3>June Baraket-Redsell</h3>
+            <p>Director, Communication &amp; Coordination</p>
+          </article>
+          <article class="info-card">
+            <h3>Nada Hatem</h3>
+            <p>Manager, Panthers Lebanon Team</p>
+          </article>
+          <article class="info-card">
+            <h3>Francois Borduas</h3>
+            <p>Skills &amp; Skating Trainer</p>
+          </article>
+          <article class="info-card">
+            <h3>Bob (Ibrahim) Bornibyouk</h3>
+            <p>Referee-in-Chief, IIHF-accredited</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- The committee the federation names separately from the board. Bachir
+           Kazan is in both because the site lists him in both: Director of
+           Legal Affairs, and the committee's lawyer.
+
+           On "Wissam Salaman": the old site spells this name Salaman in the
+           board list and Salman in the committee list. One spelling is used in
+           both places here rather than printing two on one page - the
+           federation should confirm which is right, and whether this is one
+           person or two. -->
+      <section class="section reveal tinted">
+        <div class="section-heading">
+          <p class="eyebrow">Safety &amp; Integrity</p>
+          <h2>Disciplinary &amp; Dispute Committee</h2>
+          <p>
+            A standing committee with its own mandate: safety rules,
+            disciplinary processes, disputes, and sanctions.
+          </p>
+        </div>
+
+        <div class="card-grid">
+          <article class="info-card">
+            <h3>Rick Daigle</h3>
+            <p>Chair</p>
+          </article>
+          <article class="info-card">
+            <h3>Wissam Salaman</h3>
+            <p>Member</p>
+          </article>
+          <article class="info-card">
+            <h3>Edouard Tabet</h3>
+            <p>Member</p>
+          </article>
+          <article class="info-card">
+            <h3>Bachir Kazan</h3>
+            <p>Lawyer to the committee</p>
           </article>
         </div>
       </section>
@@ -157,6 +431,50 @@
             <span class="tier bronze">Bronze</span>
             <h3>2025 3v3 Kazan Islamic Tournament</h3>
             <p>Men's National Team</p>
+          </article>
+        </div>
+      </section>
+
+
+      <!-- What the federation says it is working towards, in its own three
+           horizons. Kept as the site states them, including the parts that
+           depend on money and land it does not have yet. -->
+      <section class="section reveal tinted">
+        <div class="section-heading">
+          <p class="eyebrow">What Comes Next</p>
+          <h2>Development objectives</h2>
+          <p>
+            The federation's plan over three horizons - from getting more people
+            on the ice this season to a rink of Lebanon's own.
+          </p>
+        </div>
+
+        <div class="card-grid">
+          <article class="info-card">
+            <h3>Short term</h3>
+            <ul>
+              <li>Train players in Lebanon and overseas.</li>
+              <li>Recruit and develop coaches, referees and volunteers.</li>
+              <li>Explore natural mountain ice surfaces for winter hockey.</li>
+              <li>Enter more international tournaments.</li>
+              <li>Build on the September 2023 memorandum of understanding with the Municipality of Jounieh.</li>
+            </ul>
+          </article>
+          <article class="info-card">
+            <h3>Medium term</h3>
+            <ul>
+              <li>Complete a feasibility and business plan for the proposed ice-sport complex.</li>
+              <li>Increase local and international awareness, and corporate support.</li>
+              <li>Run summer camps and exhibition games, potentially in Canada and France, to bring through youth players.</li>
+            </ul>
+          </article>
+          <article class="info-card">
+            <h3>Long term</h3>
+            <ul>
+              <li>Fund and build a multi-sport venue with an NHL-sized rink, gym, pro shop and food service, with room for related sports and events - the federation's plan puts the arena at 5,000 seats.</li>
+              <li>Establish local development and a Lebanese Hockey League of at least four teams.</li>
+              <li>Enter IIHF competitions and world championships, and ultimately Winter Olympic competition.</li>
+            </ul>
           </article>
         </div>
       </section>
@@ -227,6 +545,7 @@
     <script src="./assets/api.js"></script>
 
     <script src="./assets/app.js"></script>
+    <script src="./assets/hero.js"></script>
 
     <script src="./assets/chat.js"></script>
   </body>

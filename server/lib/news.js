@@ -13,6 +13,7 @@
  */
 import { db } from '../db.js';
 import { config } from '../config.js';
+import { escapeHtml, stripTags, absolute, textToHtml, intoShell, socialMeta } from './page.js';
 
 export function slugify(value) {
   return String(value || '')
@@ -83,32 +84,9 @@ export function serialisePost(post) {
   };
 }
 
-const escapeHtml = (value) =>
-  String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-
-const stripTags = (value) => String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-
-/** Paragraphs from a plain-text body, so an admin never has to write HTML. */
-function bodyToHtml(body) {
-  return String(body || '')
-    .split(/\n{2,}/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
-    .join('\n          ');
-}
-
-const absolute = (url) => {
-  const value = String(url || '');
-  if (!value) return '';
-  if (/^https?:\/\//i.test(value)) return value;
-  return `${config.appUrl}/${value.replace(/^\.?\//, '')}`;
-};
+/* escapeHtml, stripTags, absolute, textToHtml, intoShell and socialMeta are
+   in lib/page.js, shared with the team, player and game-sheet pages. The old
+   bodyToHtml here was textToHtml under another name. */
 
 /**
  * Render one post into the real news.html shell.
@@ -123,22 +101,20 @@ export function renderPostPage(post, shellHtml) {
   const image = absolute(post.image_url);
   const url = `${config.appUrl}/news/${post.slug}`;
 
-  const meta = [
-    `<link rel="canonical" href="${escapeHtml(url)}">`,
-    `<meta property="og:type" content="article">`,
-    `<meta property="og:site_name" content="Lebanon Hockey">`,
-    `<meta property="og:title" content="${escapeHtml(post.title)}">`,
-    `<meta property="og:description" content="${escapeHtml(description)}">`,
-    `<meta property="og:url" content="${escapeHtml(url)}">`,
-    image ? `<meta property="og:image" content="${escapeHtml(image)}">` : '',
-    `<meta name="twitter:card" content="${image ? 'summary_large_image' : 'summary'}">`,
-    `<meta name="twitter:title" content="${escapeHtml(post.title)}">`,
-    `<meta name="twitter:description" content="${escapeHtml(description)}">`,
-    image ? `<meta name="twitter:image" content="${escapeHtml(image)}">` : '',
-    post.published_at ? `<meta property="article:published_time" content="${escapeHtml(post.published_at)}">` : '',
-  ]
-    .filter(Boolean)
-    .join('\n    ');
+  /* article:published_time is the one tag a post has and a team page does
+     not, so it goes through socialMeta's `extra` rather than forking it. */
+  const meta = socialMeta({
+    title: post.title,
+    description,
+    image,
+    url,
+    type: 'article',
+    extra: [
+      post.published_at
+        ? `<meta property="article:published_time" content="${escapeHtml(post.published_at)}">`
+        : '',
+    ],
+  });
 
   const contact = [
     post.contact_email
@@ -179,7 +155,7 @@ export function renderPostPage(post, shellHtml) {
           </button>`
               : ''
           }
-          ${bodyToHtml(post.body) || `<p>${escapeHtml(post.excerpt)}</p>`}
+          ${textToHtml(post.body) || `<p>${escapeHtml(post.excerpt)}</p>`}
           ${contact ? `<p class="post-contact">${contact}</p>` : ''}
           <div class="post-share" data-post-share></div>
         </article>
@@ -189,30 +165,5 @@ export function renderPostPage(post, shellHtml) {
         </div>
       </section>`;
 
-  let html = shellHtml;
-
-  // Title and the social preview tags.
-  html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`);
-  html = html.replace(
-    /<meta\s+name="description"[\s\S]*?>/i,
-    `<meta name="description" content="${escapeHtml(description)}">`
-  );
-  html = html.replace('</head>', `  ${meta}\n  </head>`);
-
-  // Swap the newsroom listing for this one article.
-  html = html.replace(/<main id="main">[\s\S]*?<\/main>/i, `<main id="main">${article}\n    </main>`);
-
-  /* The shell was written for a page at the site root, so every asset and nav
-     link in it is relative. This page lives one level down at /news/<slug>, where
-     "./assets/styles.css" would resolve to "/news/assets/styles.css" and 404 -
-     taking the stylesheet, the fonts, the logo and every script with it.
-     Rewriting to absolute fixes all of them at once.
-
-     Deliberately not <base href="/">, which would do the same job but also send
-     the "#main" skip link to the homepage instead of down the page. */
-  html = html
-    .replace(/(src|href)="\.\/(assets\/)/g, '$1="/$2')
-    .replace(/(href)="([A-Za-z0-9_-]+\.html)"/g, '$1="/$2"');
-
-  return html;
+  return intoShell(shellHtml, { title, description, meta, main: article });
 }

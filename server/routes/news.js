@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { rootDir } from '../db.js';
 import { listPosts, findPostBySlug, serialisePost, renderPostPage } from '../lib/news.js';
 import { applyContent } from '../lib/content.js';
+import { applyFlags } from '../lib/settings.js';
 
 export const newsRouter = Router();
 
@@ -38,7 +39,7 @@ newsPageRouter.get('/news/:slug', (req, res, next) => {
     const shell = readFileSync(shellPath, 'utf8');
     /* Run the editable-copy overrides over the shell first, so the header and
        footer on a post page say whatever the admin set them to say. */
-    const html = renderPostPage(post, applyContent('news.html', shell));
+    const html = renderPostPage(post, applyFlags(applyContent('news.html', shell)));
 
     res.setHeader('Cache-Control', 'no-store');
     res.type('html').send(html);

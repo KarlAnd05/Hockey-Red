@@ -32,11 +32,21 @@
       <nav id="site-nav" class="site-nav" aria-label="Primary navigation">
         <a href="index.html">Home</a>
         <a href="about.html">About</a>
-        <a href="teams.html">Our Teams</a>
+        <div class="nav-group">
+          <a href="teams.html">Our Teams</a>
+          <div class="nav-submenu">
+            <a href="/games" data-nav-flag="games">Game Sheets</a>
+          </div>
+        </div>
         <a href="news.html">News</a>
         <a href="membership.html">Membership</a>
         <a href="events.html" class="is-active">Events</a>
-        <a href="sponsors.html">Sponsors</a>
+        <div class="nav-group">
+          <a href="sponsors.html">Sponsors</a>
+          <div class="nav-submenu">
+            <a href="donation.html">Make a Donation</a>
+          </div>
+        </div>
         <a href="shop.html">Store</a>
       </nav>
       <div class="header-tools">
@@ -77,10 +87,10 @@
             <img src="./assets/Hero-UltMontreal-shutterstock_1839500569.jpg" alt="Hockey action on ice">
             <div>
               <p class="tag">Series</p>
-              <h2>Montreal Challengers Series</h2>
-              <p>Competitive sessions and federation events for players, families, and supporters.</p>
+              <h2>Challenger Series - Montreal</h2>
+              <p>Lebanon against other emerging hockey nations, 8-12 July at the Sportplexe Pierrefonds. Third edition.</p>
               <div class="section-cta">
-                <a class="button secondary" href="index.html#contact">Learn More</a>
+                <a class="button secondary" href="#challenger-series">Learn More</a>
               </div>
             </div>
           </article>
@@ -109,6 +119,46 @@
             </div>
           </article>
         </div>
+      </section>
+
+      <!-- The Challenger Series, from the federation's partnership deck for the
+           third edition. The year is deliberately absent: the deck gives
+           "8-12 July" with no year at all, and inventing one would put a wrong
+           date on a public page. Flagged in SETUP-CHECKLIST.md. -->
+      <section id="challenger-series" class="section reveal">
+        <div class="section-heading">
+          <p class="eyebrow">The Challenger Series</p>
+          <h2>A tournament for hockey's newer nations</h2>
+          <p>
+            An international platform for countries where the game is growing
+            fast and the opportunities have not caught up. It runs in two legs:
+            Chicago, during the Fiesta del Hockey, and Montreal, at the
+            Sportplexe Pierrefonds, 8-12 July. This is its third edition. The
+            point of it is stated plainly by the organisers - inclusion,
+            integration and access to hockey for players who do not start with
+            the same chances.
+          </p>
+        </div>
+
+        <div class="stat-row">
+          <div class="stat-figure">
+            <span class="stat-value">11</span>
+            <span class="stat-label">Teams</span>
+          </div>
+          <div class="stat-figure">
+            <span class="stat-value">2</span>
+            <span class="stat-label">Championship finals</span>
+          </div>
+          <div class="stat-figure">
+            <span class="stat-value">8,500</span>
+            <span class="stat-label">Expected spectators</span>
+          </div>
+        </div>
+        <p class="stat-note">
+          Lebanon played the 2025 edition alongside Jamaica, Puerto Rico and
+          other developing hockey nations. That edition drew more than twenty
+          media articles.
+        </p>
       </section>
 
       <section id="schedule" class="section reveal" data-schedule-section hidden>
@@ -183,6 +233,7 @@
     <script src="./assets/api.js"></script>
 
     <script src="./assets/app.js"></script>
+    <script src="./assets/hero.js"></script>
 
     <script src="./assets/chat.js"></script>
 

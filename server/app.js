@@ -17,6 +17,8 @@ import { chatRouter } from './routes/chat.js';
 import { membershipRouter } from './routes/membership.js';
 import { rosterRouter } from './routes/roster.js';
 import { teamsRouter, teamsPageRouter } from './routes/teams.js';
+import { gamesPageRouter } from './routes/games.js';
+import { applyFlags } from './lib/settings.js';
 import { ordersRouter } from './routes/orders.js';
 import { adminRouter } from './routes/admin.js';
 import { adminTeamsRouter } from './routes/admin-teams.js';
@@ -164,7 +166,7 @@ export function createApp() {
     const page = pathname.replace(/^\//, '');
     try {
       const html = readFileSync(filePath, 'utf8');
-      res.type('html').send(applyContent(page, html));
+      res.type('html').send(applyFlags(applyContent(page, html)));
     } catch (error) {
       console.error('[content] serving %s without edits:', page, error.message);
       res.sendFile(filePath);
@@ -181,6 +183,7 @@ export function createApp() {
      Same reasoning as the news post pages: a shared link has to preview, and a
      profile has to be readable without JavaScript. */
   app.use(teamsPageRouter);
+  app.use(gamesPageRouter);
 
   app.get('/favicon.ico', (req, res) => {
     res.redirect(302, '/assets/LIHF-01_edited.png');

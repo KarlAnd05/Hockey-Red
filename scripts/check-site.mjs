@@ -25,6 +25,7 @@ const PAGES = [
 const ADMIN = [
   '/admin/', '/admin/index.html', '/admin/products.html', '/admin/orders.html',
   '/admin/customers.html', '/admin/invoices.html', '/admin/discounts.html',
+  '/admin/games.html', '/admin/live.html',
 ];
 
 const badPages = [];

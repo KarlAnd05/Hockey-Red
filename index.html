@@ -42,11 +42,21 @@
       <nav id="site-nav" class="site-nav" aria-label="Primary navigation">
         <a href="index.html" class="is-active">Home</a>
         <a href="about.html">About</a>
-        <a href="teams.html">Our Teams</a>
+        <div class="nav-group">
+          <a href="teams.html">Our Teams</a>
+          <div class="nav-submenu">
+            <a href="/games" data-nav-flag="games">Game Sheets</a>
+          </div>
+        </div>
         <a href="news.html">News</a>
         <a href="membership.html">Membership</a>
         <a href="events.html">Events</a>
-        <a href="sponsors.html">Sponsors</a>
+        <div class="nav-group">
+          <a href="sponsors.html">Sponsors</a>
+          <div class="nav-submenu">
+            <a href="donation.html">Make a Donation</a>
+          </div>
+        </div>
         <a href="shop.html">Store</a>
       </nav>
       <div class="header-tools">
@@ -154,13 +164,18 @@
       <section id="programs" class="split-section reveal">
         <div class="split-copy">
           <p class="eyebrow">Programs</p>
-          <h2>Men's, women's, and youth development</h2>
+          <h2>Four programmes, one cedar</h2>
           <p>
-            Lebanon Hockey supports players through organized programs,
-            skill-building opportunities, and a connected federation network.
+            The men's and women's national teams, the club programme, and youth
+            development. Between them they cover a first skate, a competitive
+            season, and an international tournament.
           </p>
           <div class="program-list">
-                        <a href="events.html">Community Events</a>
+            <a href="/teams/mens">Men's National Program</a>
+            <a href="/teams/womens">Women's National Program</a>
+            <a href="/teams/panthers">Lebanese Panthers</a>
+            <a href="/teams/youth">Youth Program</a>
+            <a href="events.html">Community Events</a>
           </div>
         </div>
         <div class="image-stack">
@@ -321,6 +336,9 @@
     <script src="./assets/api.js"></script>
 
     <script src="./assets/app.js"></script>
+    <script src="./assets/hero.js"></script>
+    <script src="./assets/marquee.js"></script>
+    <script src="./assets/contact.js"></script>
 
     <script src="./assets/chat.js"></script>
   </body>

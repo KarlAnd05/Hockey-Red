@@ -18,6 +18,7 @@ import {
   renderPlayerPage,
 } from '../lib/teams.js';
 import { applyContent } from '../lib/content.js';
+import { applyFlags } from '../lib/settings.js';
 import { statsForPlayer } from '../lib/stats.js';
 
 export const teamsRouter = Router();
@@ -58,7 +59,7 @@ export const teamsPageRouter = Router();
 function shell(name) {
   const path = join(rootDir, name);
   if (!existsSync(path)) return null;
-  return applyContent(name, readFileSync(path, 'utf8'));
+  return applyFlags(applyContent(name, readFileSync(path, 'utf8')));
 }
 
 /* The programme pages were merged into Our Teams.

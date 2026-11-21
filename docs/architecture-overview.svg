@@ -1,0 +1,171 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1390" viewBox="0 0 1600 1390" role="img" aria-labelledby="title description">
+  <title id="title">Lebanon Hockey project architecture and information flow</title>
+  <desc id="description">Visitors, customers and administrators use HTML pages and plain JavaScript. Same-origin requests reach a single Express process, which checks sessions, CSRF and permissions and dispatches six groups of domain functions. All groups share SQLite and local file storage. Stripe hosts card payments and sends signed webhooks. SMTP delivers notifications. Manual e-Transfers are confirmed by an administrator. Game events project into sheet totals and final played sheets feed calculated player statistics.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#65717c"/>
+    </marker>
+    <marker id="red-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#c8102e"/>
+    </marker>
+    <style>
+      text { font-family: 'Segoe UI', Arial, sans-serif; fill: #15202b; }
+      .title { font-size: 36px; font-weight: 700; letter-spacing: -.7px; }
+      .subtitle { font-size: 17px; fill: #56616b; }
+      .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 1.7px; fill: #9e1230; }
+      .heading { font-size: 21px; font-weight: 700; }
+      .body { font-size: 16px; fill: #46535f; }
+      .small { font-size: 14px; fill: #56616b; }
+      .label { font-size: 13px; font-weight: 600; fill: #56616b; }
+      .mono { font-family: Consolas, 'Courier New', monospace; font-size: 14px; fill: #46535f; }
+      .card { fill: #ffffff; stroke: #cfd5d9; stroke-width: 1.5; }
+      .connector { fill: none; stroke: #65717c; stroke-width: 2; marker-end: url(#arrow); }
+      .payment { fill: none; stroke: #c8102e; stroke-width: 2; marker-end: url(#red-arrow); }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1390" fill="#f6f5f2"/>
+  <rect x="40" y="39" width="6" height="57" rx="3" fill="#c8102e"/>
+  <text x="64" y="66" class="title">Lebanon Hockey architecture</text>
+  <text x="64" y="96" class="subtitle">How pages, APIs, business records and external services connect</text>
+  <text x="1548" y="62" text-anchor="end" class="eyebrow">CODE SNAPSHOT</text>
+  <text x="1548" y="88" text-anchor="end" class="small">19 November 2026</text>
+
+  <text x="64" y="136" class="eyebrow">01 / BROWSER</text>
+  <rect x="64" y="152" width="341" height="106" rx="12" class="card"/>
+  <text x="84" y="184" class="heading">Visitors and supporters</text>
+  <text x="84" y="211" class="body">News, teams, donations, membership</text>
+  <text x="84" y="236" class="small">Contact form and token-owned chat</text>
+
+  <rect x="426" y="152" width="341" height="106" rx="12" class="card"/>
+  <text x="446" y="184" class="heading">Store customers</text>
+  <text x="446" y="211" class="body">Products, cart, checkout and orders</text>
+  <text x="446" y="236" class="small">Account or guest order-access link</text>
+
+  <rect x="788" y="152" width="348" height="106" rx="12" class="card"/>
+  <text x="808" y="184" class="heading">Administrators and coaches</text>
+  <text x="808" y="211" class="body">19 protected administration screens</text>
+  <text x="808" y="236" class="small">Content, operations and live match entry</text>
+
+  <path d="M234 258 V278 H597 M962 258 V278 H597 M597 258 V317" class="connector"/>
+  <rect x="326" y="280" width="542" height="25" fill="#f6f5f2"/>
+  <text x="597" y="298" text-anchor="middle" class="label">HTML + plain JavaScript · LH.api · same-origin HTTP</text>
+
+  <rect x="40" y="320" width="1120" height="655" rx="18" fill="#e9edf0" stroke="#bbc5cc" stroke-width="1.5"/>
+  <text x="64" y="352" class="eyebrow">02 / ONE NODE.JS AND EXPRESS PROCESS</text>
+  <rect x="64" y="371" width="1072" height="116" rx="11" fill="#15202b"/>
+  <text x="86" y="404" class="heading" style="fill:#ffffff">Request handling and access control</text>
+  <text x="86" y="434" class="body" style="fill:#d6dde3">Raw Stripe webhook first → body parsers → session lookup → API CSRF → routers</text>
+  <text x="86" y="461" class="small" style="fill:#d6dde3">Admin HTML + API role checks · public HTML allow-list · nested page rendering · security headers</text>
+
+  <path d="M600 487 V516" class="connector"/>
+  <text x="64" y="535" class="label">API routers → domain functions → SQL and side effects</text>
+
+  <rect x="64" y="553" width="341" height="164" rx="11" class="card"/>
+  <rect x="64" y="553" width="5" height="164" rx="2" fill="#c8102e"/>
+  <text x="84" y="585" class="heading">Store and orders</text>
+  <text x="84" y="614" class="body">Cart → server pricing → order snapshot</text>
+  <text x="84" y="640" class="body">Payment → shared settlement function</text>
+  <text x="84" y="666" class="body">Stock + discount usage + clear cart</text>
+  <text x="84" y="694" class="small">Invoice PDF and confirmation messages</text>
+
+  <rect x="426" y="553" width="341" height="164" rx="11" class="card"/>
+  <text x="446" y="585" class="heading">Donations and membership</text>
+  <text x="446" y="614" class="body">Gifts → one-time / recurring Checkout</text>
+  <text x="446" y="640" class="body">Invoice webhooks → cycle payments</text>
+  <text x="446" y="666" class="body">Applications saved before payment</text>
+  <text x="446" y="694" class="small">Separate records from accounts and orders</text>
+
+  <rect x="788" y="553" width="348" height="164" rx="11" class="card"/>
+  <text x="808" y="585" class="heading">Teams and match records</text>
+  <text x="808" y="614" class="body">Teams / players → match sheet lines</text>
+  <text x="808" y="640" class="body">Goals / penalties → sheet totals</text>
+  <text x="808" y="666" class="body">Final + played → calculated career stats</text>
+  <text x="808" y="694" class="small">Publishing and statistics are independent</text>
+
+  <rect x="64" y="737" width="341" height="164" rx="11" class="card"/>
+  <text x="84" y="769" class="heading">Accounts and sessions</text>
+  <text x="84" y="798" class="body">Guest state created on demand</text>
+  <text x="84" y="824" class="body">Hashed session tokens + salted scrypt</text>
+  <text x="84" y="850" class="body">Login rotates session and merges cart</text>
+  <text x="84" y="878" class="small">Customer / admin roles; reset tokens expire</text>
+
+  <rect x="426" y="737" width="341" height="164" rx="11" class="card"/>
+  <text x="446" y="769" class="heading">Publishing and page text</text>
+  <text x="446" y="798" class="body">Source HTML + database copy overrides</text>
+  <text x="446" y="824" class="body">News, sponsors and programme schedule</text>
+  <text x="446" y="850" class="body">Database records → nested HTML pages</text>
+  <text x="446" y="878" class="small">Section switches stored in app_meta</text>
+
+  <rect x="788" y="737" width="348" height="164" rx="11" class="card"/>
+  <text x="808" y="769" class="heading">Chat and communication</text>
+  <text x="808" y="798" class="body">Thread token → messages → admin reply</text>
+  <text x="808" y="824" class="body">HTTP polling; contact-form inbox</text>
+  <text x="808" y="850" class="body">Notification templates → mail transport</text>
+  <text x="808" y="878" class="small">Image upload and PDF / CSV / XLSX helpers</text>
+
+  <text x="600" y="936" text-anchor="middle" class="small">All modules share the database. Some HTTP handlers execute SQL directly.</text>
+  <text x="600" y="958" text-anchor="middle" class="small">The public live-match page is a snapshot on each request; event entry is an admin workflow.</text>
+
+  <text x="1220" y="136" class="eyebrow">EXTERNAL SERVICES AND ACTIONS</text>
+  <rect x="1208" y="152" width="352" height="106" rx="12" fill="#f9f0f2" stroke="#dec3ca" stroke-width="1.5"/>
+  <text x="1228" y="184" class="heading">Browser payment redirect</text>
+  <text x="1228" y="211" class="body">Card details are entered on Stripe</text>
+  <text x="1228" y="236" class="small">No card-number storage in this application</text>
+
+  <rect x="1208" y="372" width="352" height="182" rx="12" class="card"/>
+  <text x="1228" y="405" class="heading">Stripe</text>
+  <text x="1228" y="435" class="body">Hosted Checkout and Subscriptions</text>
+  <text x="1228" y="462" class="body">Billing Portal for monthly donors</text>
+  <text x="1228" y="494" class="small">Outbound server API calls</text>
+  <text x="1228" y="520" class="small">Inbound signed webhook events</text>
+  <path d="M1384 258 V370" class="payment"/>
+  <path d="M1160 435 H1206" class="payment"/>
+  <path d="M1208 463 H1162" class="payment"/>
+
+  <rect x="1208" y="588" width="352" height="156" rx="12" class="card"/>
+  <text x="1228" y="621" class="heading">SMTP email provider</text>
+  <text x="1228" y="651" class="body">Confirmations, resets and admin alerts</text>
+  <text x="1228" y="681" class="small">Nodemailer records delivery metadata</text>
+  <text x="1228" y="707" class="small">No SMTP: console mode, no delivery</text>
+  <path d="M1160 665 H1206" class="connector"/>
+
+  <rect x="1208" y="780" width="352" height="194" rx="12" fill="#f9f0f2" stroke="#dec3ca" stroke-width="1.5"/>
+  <text x="1228" y="813" class="heading">Manual e-Transfer</text>
+  <text x="1228" y="843" class="body">Buyer sends money outside the app</text>
+  <text x="1228" y="872" class="body">Admin confirms receipt in Orders</text>
+  <text x="1228" y="904" class="small">Pending → paid uses the same settlement</text>
+  <text x="1228" y="930" class="small">function as verified card payments</text>
+  <text x="1228" y="954" class="label">Human confirmation; no Interac API</text>
+  <path d="M1208 876 H1162" class="payment"/>
+
+  <path d="M600 975 V1020" class="connector"/>
+  <rect x="40" y="1024" width="1120" height="246" rx="18" fill="#e9edf0" stroke="#bbc5cc" stroke-width="1.5"/>
+  <text x="64" y="1056" class="eyebrow">03 / PERSISTENT STORAGE</text>
+  <rect x="64" y="1075" width="515" height="169" rx="11" class="card"/>
+  <text x="84" y="1107" class="heading">SQLite · 33 application tables</text>
+  <text x="84" y="1134" class="mono">data/store.db or DB_PATH</text>
+  <text x="84" y="1162" class="body">Accounts, carts, orders, donations, applications</text>
+  <text x="84" y="1188" class="body">Teams, games, events, publishing and messages</text>
+  <text x="84" y="1218" class="small">WAL enabled · foreign keys enabled · 41 explicit indexes</text>
+
+  <rect x="605" y="1075" width="531" height="169" rx="11" class="card"/>
+  <text x="625" y="1107" class="heading">Local filesystem</text>
+  <text x="625" y="1136" class="body">assets/uploads → public uploaded images</text>
+  <text x="625" y="1163" class="body">invoices → authorized PDF downloads</text>
+  <text x="625" y="1190" class="body">HTML / assets → application source and media</text>
+  <text x="625" y="1218" class="small">Database stores image URLs and invoice metadata</text>
+
+  <rect x="1208" y="1024" width="352" height="246" rx="12" fill="#ffffff" stroke="#cfd5d9" stroke-width="1.5"/>
+  <text x="1228" y="1057" class="heading">Read the full schema</text>
+  <text x="1228" y="1091" class="mono">ARCHITECTURE.md</text>
+  <text x="1228" y="1117" class="small">Flows, entity relationships, page/API map,</text>
+  <text x="1228" y="1140" class="small">deployment and implementation limits</text>
+  <text x="1228" y="1180" class="mono">docs/database-schema.sql</text>
+  <text x="1228" y="1206" class="small">Every column, constraint, foreign key</text>
+  <text x="1228" y="1229" class="small">and explicit index; structure only</text>
+
+  <line x1="40" y1="1302" x2="1560" y2="1302" stroke="#d1d6da"/>
+  <text x="64" y="1332" class="small">Deployment: HTTPS reverse proxy → 127.0.0.1:PORT → one application process with persistent SQLite and uploads.</text>
+  <text x="64" y="1358" class="small">Current implementation: status-guarded order settlement; transactional game-event projections; no durable background queue.</text>
+</svg>

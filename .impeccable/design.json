@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-20T00:00:00.000Z",
+  "title": "Design System: Lebanon Hockey",
+  "extensions": {
+    "colorMeta": {
+      "cedar-red": {
+        "role": "primary",
+        "displayName": "Cedar Red",
+        "canonical": "oklch(53% 0.207 22.3)",
+        "tonalRamp": ["oklch(15% 0.037 22.3)", "oklch(26% 0.074 22.3)", "oklch(37% 0.124 22.3)", "oklch(48% 0.175 22.3)", "oklch(59% 0.189 22.3)", "oklch(70% 0.138 22.3)", "oklch(81% 0.088 22.3)", "oklch(95% 0.037 22.3)"]
+      },
+      "ink-deep": {
+        "role": "neutral",
+        "displayName": "Ink Deep",
+        "canonical": "oklch(12.7% 0.009 253.7)",
+        "tonalRamp": ["oklch(15% 0.002 253.7)", "oklch(26% 0.003 253.7)", "oklch(37% 0.005 253.7)", "oklch(48% 0.007 253.7)", "oklch(59% 0.008 253.7)", "oklch(70% 0.006 253.7)", "oklch(81% 0.004 253.7)", "oklch(95% 0.002 253.7)"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(17.6% 0.008 248.3)",
+        "tonalRamp": ["oklch(15% 0.001 248.3)", "oklch(26% 0.003 248.3)", "oklch(37% 0.005 248.3)", "oklch(48% 0.007 248.3)", "oklch(59% 0.007 248.3)", "oklch(70% 0.005 248.3)", "oklch(81% 0.003 248.3)", "oklch(95% 0.001 248.3)"]
+      },
+      "steel": {
+        "role": "neutral",
+        "displayName": "Steel",
+        "canonical": "oklch(24.1% 0.016 252.4)",
+        "tonalRamp": ["oklch(15% 0.003 252.4)", "oklch(26% 0.006 252.4)", "oklch(37% 0.01 252.4)", "oklch(48% 0.014 252.4)", "oklch(59% 0.015 252.4)", "oklch(70% 0.011 252.4)", "oklch(81% 0.007 252.4)", "oklch(95% 0.003 252.4)"]
+      },
+      "bone": {
+        "role": "neutral",
+        "displayName": "Bone",
+        "canonical": "oklch(97.3% 0.003 84.6)",
+        "tonalRamp": ["oklch(15% 0.001 84.6)", "oklch(26% 0.001 84.6)", "oklch(37% 0.002 84.6)", "oklch(48% 0.002 84.6)", "oklch(59% 0.003 84.6)", "oklch(70% 0.002 84.6)", "oklch(81% 0.001 84.6)", "oklch(95% 0.001 84.6)"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "oklch(54.5% 0.014 248.1)",
+        "tonalRamp": ["oklch(15% 0.002 248.1)", "oklch(26% 0.005 248.1)", "oklch(37% 0.008 248.1)", "oklch(48% 0.012 248.1)", "oklch(59% 0.013 248.1)", "oklch(70% 0.009 248.1)", "oklch(81% 0.006 248.1)", "oklch(95% 0.002 248.1)"]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Line",
+        "canonical": "oklch(91.9% 0.006 84.6)",
+        "tonalRamp": ["oklch(15% 0.001 84.6)", "oklch(26% 0.002 84.6)", "oklch(37% 0.003 84.6)", "oklch(48% 0.005 84.6)", "oklch(59% 0.005 84.6)", "oklch(70% 0.004 84.6)", "oklch(81% 0.002 84.6)", "oklch(95% 0.001 84.6)"]
+      },
+      "chrome": {
+        "role": "neutral",
+        "displayName": "Chrome",
+        "canonical": "oklch(84.7% 0.008 253.9)",
+        "tonalRamp": ["oklch(15% 0.001 253.9)", "oklch(26% 0.003 253.9)", "oklch(37% 0.005 253.9)", "oklch(48% 0.007 253.9)", "oklch(59% 0.007 253.9)", "oklch(70% 0.005 253.9)", "oklch(81% 0.003 253.9)", "oklch(95% 0.001 253.9)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Page titles only, one per page. Sub-1.0 leading interlocks the lines into a block." },
+      "headline": { "displayName": "Headline", "purpose": "Section openers. Uppercase Archivo." },
+      "title": { "displayName": "Title", "purpose": "Card and subsection headings. Sentence case - where the shouting stops." },
+      "body": { "displayName": "Body", "purpose": "All running copy, Manrope at 16/1.6." },
+      "label": { "displayName": "Label", "purpose": "Eyebrows and tags, always Cedar Red, 0.16em tracking." }
+    },
+    "shadows": [
+      { "name": "xs", "value": "0 1px 2px rgba(5, 7, 10, 0.06), 0 1px 1px rgba(5, 7, 10, 0.04)", "purpose": "Barely-there separation for chips and small controls." },
+      { "name": "sm", "value": "0 2px 4px rgba(5, 7, 10, 0.04), 0 6px 14px rgba(5, 7, 10, 0.06)", "purpose": "The resting state of every card." },
+      { "name": "md", "value": "0 4px 8px rgba(5, 7, 10, 0.05), 0 14px 30px rgba(5, 7, 10, 0.09)", "purpose": "Raised panels and the sticky header once scrolled." },
+      { "name": "lg", "value": "0 8px 16px rgba(5, 7, 10, 0.06), 0 28px 60px rgba(5, 7, 10, 0.14)", "purpose": "Card hover and modals." },
+      { "name": "red", "value": "0 8px 18px rgba(200, 16, 46, 0.22), 0 18px 40px rgba(200, 16, 46, 0.16)", "purpose": "Reserved for the primary button - the only coloured shadow in the system." }
+    ],
+    "motion": [
+      { "name": "ease-out", "value": "cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Entrances and state changes. The default." },
+      { "name": "ease-in-out", "value": "cubic-bezier(0.65, 0, 0.35, 1)", "purpose": "Motions that must settle symmetrically." },
+      { "name": "button-state", "value": "0.25s", "purpose": "Button transform, shadow, background and colour." },
+      { "name": "card-state", "value": "0.4s", "purpose": "Card lift, shadow and border." },
+      { "name": "card-stripe", "value": "0.45s", "purpose": "The signature feature-card stripe growing to full height." },
+      { "name": "nav-underline", "value": "0.3s", "purpose": "The red nav underline growing from the left." }
+    ],
+    "gradients": [
+      { "name": "brand", "value": "linear-gradient(115deg, #e4142f 0%, #c8102e 38%, #6b0016 78%, #05070a 100%)", "purpose": "The primary button, sized 200% and slid on hover." },
+      { "name": "red", "value": "linear-gradient(115deg, #e4142f 0%, #96001f 100%)", "purpose": "The feature-card stripe and the nav underline." },
+      { "name": "ink", "value": "linear-gradient(150deg, #05070a 0%, #1a2027 60%, #2a333d 100%)", "purpose": "Dark surfaces and the footer." },
+      { "name": "accent-word", "value": "linear-gradient(100deg, #ff5a70 0%, #c8102e 55%, #6b0016 100%)", "purpose": "The single gradient word in an h1. One word, h1 only, once per page." }
+    ],
+    "breakpoints": [
+      { "name": "nav-tight", "value": "1440px" },
+      { "name": "wordmark-drop", "value": "1250px" },
+      { "name": "nav-collapse", "value": "1100px" },
+      { "name": "table-cards", "value": "760px" },
+      { "name": "compact", "value": "560px" }
+    ],
+    "layout": {
+      "shell": "1360px",
+      "gutter": "clamp(20px, 6vw, 84px)",
+      "sectionPadding": "clamp(64px, 8vw, 112px)",
+      "scale": "8pt (4, 8, 12, 16, 24, 32, 48, 64, 96)"
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one action a screen wants. The gradient slides and the button lifts 2px on hover.",
+      "html": "<button class=\"ds-btn-primary\">Become a partner</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:50px;padding:13px 28px;border:1px solid transparent;border-radius:999px;font-family:Manrope,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#fff;cursor:pointer;background:linear-gradient(115deg,#e4142f 0%,#c8102e 38%,#6b0016 78%,#05070a 100%);background-size:200% 200%;background-position:0% 50%;box-shadow:0 8px 18px rgba(200,16,46,.22),0 18px 40px rgba(200,16,46,.16);transition:transform .25s cubic-bezier(.22,1,.36,1),box-shadow .25s cubic-bezier(.22,1,.36,1),background .25s cubic-bezier(.22,1,.36,1)}.ds-btn-primary:hover{background-position:100% 50%;transform:translateY(-2px);box-shadow:0 12px 24px rgba(200,16,46,.28),0 24px 50px rgba(200,16,46,.2)}.ds-btn-primary:focus-visible{outline:3px solid #c8102e;outline-offset:3px}.ds-btn-primary:active{transform:translateY(0)}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "The default action on a light background.",
+      "html": "<button class=\"ds-btn-ghost\">View events</button>",
+      "css": ".ds-btn-ghost{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:50px;padding:13px 28px;border:1px solid #918b82;border-radius:999px;font-family:Manrope,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#05070a;background:#fff;cursor:pointer;transition:transform .25s cubic-bezier(.22,1,.36,1),border-color .2s,background .25s}.ds-btn-ghost:hover{border-color:#05070a;transform:translateY(-2px)}.ds-btn-ghost:focus-visible{outline:3px solid #c8102e;outline-offset:3px}"
+    },
+    {
+      "name": "Secondary Button (on dark)",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "For dark and photographic backgrounds. Frosted rather than filled.",
+      "html": "<div style=\"background:#05070a;padding:28px;border-radius:16px\"><button class=\"ds-btn-secondary\">Get in touch</button></div>",
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:50px;padding:13px 28px;border:1px solid rgba(255,255,255,.45);border-radius:999px;font-family:Manrope,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#fff;background:rgba(255,255,255,.07);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);cursor:pointer;transition:background .25s,transform .25s cubic-bezier(.22,1,.36,1)}.ds-btn-secondary:hover{background:rgba(255,255,255,.16);transform:translateY(-2px)}.ds-btn-secondary:focus-visible{outline:3px solid #fff;outline-offset:3px}"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Bone at rest, white on focus, with a 4px red halo that replaces the native outline.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Email address</span><input class=\"ds-input\" type=\"email\" placeholder=\"you@example.com\"></label>",
+      "css": ".ds-field{display:block;max-width:360px}.ds-field-label{display:block;margin-bottom:8px;font-family:Manrope,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:700;color:#0e1114}.ds-input{width:100%;border:1px solid #918b82;border-radius:10px;padding:13px 14px;font-family:Manrope,'Segoe UI',Arial,sans-serif;font-size:15px;color:#0e1114;background:#f7f6f4;transition:border-color .2s cubic-bezier(.22,1,.36,1),box-shadow .2s cubic-bezier(.22,1,.36,1),background .2s}.ds-input:focus{outline:none;border-color:#c8102e;background:#fff;box-shadow:0 0 0 4px #f9dde1}"
+    },
+    {
+      "name": "Feature Card",
+      "kind": "card",
+      "refersTo": "feature-card",
+      "description": "The signature surface. A 4px red stripe sits at a quarter height and grows to full on hover while the card lifts 6px.",
+      "html": "<article class=\"ds-card\"><p class=\"ds-eyebrow\">Programs</p><h3 class=\"ds-card-title\">Women&rsquo;s Development</h3><p class=\"ds-card-body\">A national program building the women&rsquo;s game across Canada and Lebanon.</p></article>",
+      "css": ".ds-card{position:relative;max-width:380px;padding:24px;border:1px solid #e6e4e0;border-radius:16px;background:#fff;box-shadow:0 2px 4px rgba(5,7,10,.04),0 6px 14px rgba(5,7,10,.06);overflow:hidden;transition:transform .4s cubic-bezier(.22,1,.36,1),box-shadow .4s cubic-bezier(.22,1,.36,1),border-color .4s}.ds-card::before{content:'';position:absolute;inset:0 auto 0 0;width:4px;background:linear-gradient(115deg,#e4142f 0%,#96001f 100%);transform:scaleY(.25);transform-origin:top;transition:transform .45s cubic-bezier(.22,1,.36,1)}.ds-card:hover{transform:translateY(-6px);box-shadow:0 8px 16px rgba(5,7,10,.06),0 28px 60px rgba(5,7,10,.14);border-color:#d5d2cc}.ds-card:hover::before{transform:scaleY(1)}.ds-card-title{margin:0 0 8px;font-family:Archivo,Manrope,sans-serif;font-size:21px;font-weight:700;line-height:1.22;letter-spacing:-.01em;color:#0e1114}.ds-card-body{margin:0;font-family:Manrope,'Segoe UI',Arial,sans-serif;font-size:16px;line-height:1.6;color:#6a7178}.ds-card .ds-eyebrow{margin:0 0 12px}"
+    },
+    {
+      "name": "Eyebrow",
+      "kind": "chip",
+      "refersTo": "eyebrow",
+      "description": "The section label. Always Cedar Red, always uppercase at 0.16em tracking.",
+      "html": "<p class=\"ds-eyebrow\">Recognised by</p>",
+      "css": ".ds-eyebrow{display:inline-block;margin:0 0 12px;font-family:Manrope,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#c8102e}"
+    },
+    {
+      "name": "Nav Link",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "A 2px red underline grows from the left, inset to exactly the link padding via one shared variable so the two cannot drift.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-link ds-is-active\" href=\"#\">Home</a><a class=\"ds-nav-link\" href=\"#\">Our Teams</a><a class=\"ds-nav-link\" href=\"#\">Sponsors</a></nav>",
+      "css": ".ds-nav{display:inline-flex;gap:4px;background:#fff;padding:8px}.ds-nav-link{position:relative;--ds-nav-pad-x:9px;padding:9px var(--ds-nav-pad-x);border-radius:6px;font-family:Manrope,'Segoe UI',Arial,sans-serif;font-size:15.5px;font-weight:700;color:#0e1114;text-decoration:none;white-space:nowrap}.ds-nav-link::after{content:'';position:absolute;left:var(--ds-nav-pad-x);right:var(--ds-nav-pad-x);bottom:4px;height:2px;border-radius:2px;background:linear-gradient(115deg,#e4142f 0%,#96001f 100%);transform:scaleX(0);transform-origin:left;transition:transform .3s cubic-bezier(.22,1,.36,1)}.ds-nav-link:hover::after,.ds-nav-link.ds-is-active::after{transform:scaleX(1)}.ds-nav-link.ds-is-active{color:#c8102e}.ds-nav-link:focus-visible{outline:3px solid #c8102e;outline-offset:2px}"
+    },
+    {
+      "name": "Hero Badge",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "The credential chip over hero imagery. Its dot is the one inherited ambient animation and is not a pattern to repeat.",
+      "html": "<div style=\"background:#05070a;padding:28px;border-radius:16px\"><span class=\"ds-badge\"><span class=\"ds-badge-dot\"></span>Reg. No. 00418</span></div>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border:1px solid rgba(255,255,255,.26);border-radius:999px;background:rgba(255,255,255,.09);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-family:Manrope,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#fff}.ds-badge-dot{width:8px;height:8px;border-radius:50%;background:#e4142f;box-shadow:0 0 0 0 rgba(228,20,47,.7);animation:ds-pulse 2.4s cubic-bezier(.22,1,.36,1) infinite}@keyframes ds-pulse{70%{box-shadow:0 0 0 10px rgba(228,20,47,0)}100%{box-shadow:0 0 0 0 rgba(228,20,47,0)}}@media (prefers-reduced-motion:reduce){.ds-badge-dot{animation:none}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Federation Record",
+    "overview": "This is an institution that keeps receipts. A decree year, an associate-membership date, seven named directors, seven partners sorted by tier - the Lebanese Ice Hockey Federation's claim is that it is recognised, and the design's whole job is to let that claim land without raising its voice. The system reads like an official register that happens to be printed in the colours of a jersey: facts set in heavy uppercase display type, given room, and left alone.\n\nThe atmosphere is assured, documentary and unfussy, and it is warm rather than corporate. Nothing here performs enthusiasm. The off-white panels, the soft warm neutrals and the civic tone place this as a community body with international standing - not a startup, not a brand campaign. Where other sporting sites reach for montage and urgency, this one reaches for whitespace and a date. The primary visitor is deciding whether to attach their organisation's name to the federation; credibility does that work, not atmosphere.\n\nRed is the exception that proves it. The palette is overwhelmingly ink on warm paper, and the jersey red appears only where the visitor is meant to act or orient. That restraint is the system's single most load-bearing decision: a red button means something here because almost nothing else is red.",
+    "keyCharacteristics": [
+      "Heavy uppercase Archivo display type with negative leading (0.94) and tight tracking, set against a warm off-white",
+      "A near-monochrome page with cedar red held to roughly a tenth of any screen",
+      "Layered two-part shadows rather than one soft blur - depth that reads as printed, not floated",
+      "An 8pt spacing scale and a 1360px shell, with a fluid gutter from 20px to 84px",
+      "Self-hosted type and zero third-party requests, which is a published privacy commitment, not a performance tactic",
+      "Motion exists only as a response to the visitor"
+    ],
+    "rules": [
+      { "name": "The Ten Percent Rule", "body": "Cedar Red covers roughly a tenth of any screen and never more. It belongs to eyebrows, primary actions, the active nav state, field focus, and one gradient word per hero. A red-backed section, a red card, or a red heading breaks it - and every one of those weakens the primary button, which is the only thing on the page the federation actually needs clicked.", "section": "colors" },
+      { "name": "The Warm Neutral Rule", "body": "Every grey in this system is warm. A cool grey background (#f5f5f5, #fafafa, anything with a blue cast) next to Bone reads as a mistake, not a variant. Chrome is the single cool exception and only ever appears on dark.", "section": "colors" },
+      { "name": "The One Gradient Word Rule", "body": "Exactly one word in an h1 may take the red gradient (h1 .accent, a 100 degree ramp from #ff5a70 through Cedar Red to Cedar Red Deep, via background-clip: text). One word, h1 only, once per page. It is a signature, and a signature used twice is a pattern. Gradient text anywhere else - h2, metrics, body, buttons - is forbidden.", "section": "typography" },
+      { "name": "The Uppercase Ceiling Rule", "body": "Uppercase stops at Title. Display, Headline, Label and Action are uppercase; Title and Body never are. Uppercase running text is unreadable and is the fastest way to make a credibility-first page look like a promotion.", "section": "typography" },
+      { "name": "The Alternating Panel Rule", "body": "Sections separate by background, not by border. White, then Bone, then white. A horizontal rule between two sections is redundant and is not used.", "section": "layout" },
+      { "name": "The Two-Shadow Rule", "body": "Every shadow has a contact layer and an ambient layer. A single-value box-shadow is not part of this system.", "section": "elevation" },
+      { "name": "The Pill-and-Panel Rule", "body": "If the visitor clicks it, it is a pill. If the visitor reads it, it is a 16px panel. A rounded-rectangle button or a pill-shaped content card both break the vocabulary.", "section": "shapes" },
+      { "name": "The Response-Only Motion Rule", "body": "Motion in this system answers the visitor - hover, focus, press, reveal on scroll. Nothing animates on its own. The one pre-existing exception is the 8px pulsing dot on the hero registration badge (pulse-dot, 2.4s, infinite); it is inherited, it is not a pattern, and no second ambient animation should join it.", "section": "components" },
+      { "name": "The Shared Variable Rule", "body": "When two properties must stay aligned across breakpoints - a link's padding and its underline inset, a tile's width and its scroll step - they read from one custom property. Duplicating the number is how they drift.", "section": "components" }
+    ],
+    "dos": [
+      "Do keep Cedar Red to roughly 10% of a screen: eyebrows, primary action, active nav, field focus, one hero word.",
+      "Do pair every shadow - a contact layer and an ambient layer, per the Two-Shadow Rule.",
+      "Do use pills for actions and 16px panels for content.",
+      "Do separate sections by alternating white and Bone backgrounds rather than by rules or dividers.",
+      "Do set every spacing value from the 8pt scale (--s-1 through --s-9), and every radius from the four named steps.",
+      "Do keep uppercase to Display, Headline, Label and Action; Title and Body stay sentence case.",
+      "Do self-host every font and asset. Zero third-party requests is a published commitment, and adding an external origin means updating cookies.html and introducing a consent requirement - it is a decision to raise, never a quiet addition.",
+      "Do run npm run contrast after any colour change; it reads the live tokens out of assets/styles.css, so it cannot drift from this file.",
+      "Do give collapsed tables a data-label on every cell so they become cards below 760px."
+    ],
+    "donts": [
+      "Don't put gradient text anywhere but a single word in an h1. Not on h2, not on metrics, not on buttons.",
+      "Don't introduce a cool grey. Every neutral in this system is warm; Chrome is the only cool value and only on dark surfaces.",
+      "Don't add a second ambient animation. Motion responds to the visitor; the inherited pulsing badge dot is an exception, not a precedent.",
+      "Don't use a single-value box-shadow.",
+      "Don't substitute the identity assets - the inline #cedar-mark SVG, the LIHF logo (assets/LIHF-01_edited.png), the flag strip, or the Archivo + Manrope pairing. These are fixed.",
+      "Don't fabricate proof. No testimonials, attendance figures, sponsorship prices, media lists or registration numbers exist in this project; a design pass does not get to invent them to fill a layout.",
+      "Don't let a red surface compete with the primary button.",
+      "Don't hardcode a hex that already exists as a token."
+    ]
+  }
+}

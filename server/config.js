@@ -19,6 +19,9 @@ if (!sessionSecret && isProduction) {
 export const config = {
   isProduction,
   port: Number(process.env.PORT || 5174),
+  /* Localhost only unless asked otherwise. HOST=0.0.0.0 opens the server to the
+     LAN for testing on a phone, which also exposes whatever database it is on. */
+  host: process.env.HOST || '127.0.0.1',
   appUrl: (process.env.APP_URL || `http://127.0.0.1:${process.env.PORT || 5174}`).replace(/\/$/, ''),
 
   // A random dev secret means restarting the server logs everyone out locally,

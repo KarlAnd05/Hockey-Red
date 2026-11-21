@@ -5,6 +5,7 @@
  * sponsor meant editing HTML. They are rows now, ordered by tier.
  */
 import { db } from '../db.js';
+import { SPONSOR_LOGOS } from './photos.js';
 
 /* The federation's own ladder. The index is the sort order, so a sponsor moves
    up the page by changing tier rather than by someone reordering the list. */
@@ -81,9 +82,16 @@ export function seedSponsors() {
   if (already) return 0;
 
   const insert = db.prepare(
-    'INSERT INTO sponsors (name, tier, blurb, sort_order) VALUES (?, ?, ?, ?)'
+    `INSERT INTO sponsors (name, tier, blurb, logo_url, logo_alt, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?)`
   );
 
-  SEED.forEach((s, i) => insert.run(s.name, s.tier, s.blurb, i));
+  /* Each partner's logo as it ran on the old site - see lib/photos.js. A
+     sponsor added later in the admin has no entry there and starts without
+     one, which the page already handles by falling back to the name. */
+  SEED.forEach((s, i) => {
+    const logo = SPONSOR_LOGOS[s.name];
+    insert.run(s.name, s.tier, s.blurb, logo?.url ?? '', logo?.alt ?? '', i);
+  });
   return SEED.length;
 }

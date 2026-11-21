@@ -30,11 +30,21 @@
       <nav id="site-nav" class="site-nav" aria-label="Primary navigation">
         <a href="index.html">Home</a>
         <a href="about.html">About</a>
-        <a href="teams.html">Our Teams</a>
+        <div class="nav-group">
+          <a href="teams.html">Our Teams</a>
+          <div class="nav-submenu">
+            <a href="/games" data-nav-flag="games">Game Sheets</a>
+          </div>
+        </div>
         <a href="news.html">News</a>
         <a href="membership.html">Membership</a>
         <a href="events.html">Events</a>
-        <a href="sponsors.html">Sponsors</a>
+        <div class="nav-group">
+          <a href="sponsors.html">Sponsors</a>
+          <div class="nav-submenu">
+            <a href="donation.html">Make a Donation</a>
+          </div>
+        </div>
         <a href="shop.html" class="is-active">Store</a>
       </nav>
 
@@ -88,6 +98,8 @@
             <p>
               Every jersey is made to order. We work hard to get them to you, and we will
               always give you an honest delivery time-frame rather than a promise we cannot keep.
+              Because each one is cut and printed for you, <strong>a jersey cannot be exchanged for
+              another colour or size once it is ordered</strong> &mdash; please choose carefully.
             </p>
             <p>
               Choose your jersey type, colour and size on each product page. If you need anything
@@ -213,6 +225,8 @@
     <script src="./assets/api.js"></script>
     <script src="./assets/app.js"></script>
     <script src="./assets/chat.js"></script>
-    <script src="./assets/store.js"></script>
+    <script src="./assets/hero.js"></script>
+    <script src="./assets/store-core.js"></script>
+    <script src="./assets/shop.js"></script>
   </body>
 </html>

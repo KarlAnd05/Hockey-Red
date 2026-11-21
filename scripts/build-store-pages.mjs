@@ -8,28 +8,55 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-/* The federation's crest. The filename is historical - the file is now the
-   supplied 810x630 transparent master (LIHF-02), not the 95x79 crop it was
-   named for. Kept under the old name because it is referenced on every page,
-   in both generators and by the favicon route, and renaming buys nothing. */
+/* The federation's crest. The filename is historical - the file is the
+   supplied transparent master (LIHF-02), trimmed to the crest's own edges at
+   378x310, not the 95x79 crop it was named for. Kept under the old name
+   because it is referenced on every page, in both generators and by the
+   favicon route, and renaming buys nothing. */
 const LOGO = './assets/LIHF-01_edited.png';
 
 const NAV = [
   ['index.html', 'Home'],
   ['about.html', 'About'],
-  ['teams.html', 'Our Teams'],
+  /* Game sheets hangs off Our Teams for the same reason Donation hangs off
+     Sponsors: the header has no room for a ninth top-level item. The third
+     element of the child tuple is the section flag, so the link can be
+     stripped on the way out when the section is switched off. */
+  ['teams.html', 'Our Teams', [['/games', 'Game Sheets', 'games']]],
   ['news.html', 'News'],
   ['membership.html', 'Membership'],
   ['events.html', 'Events'],
-  ['sponsors.html', 'Sponsors'],
+  /* A third element is a flyout that opens under the item on hover. Donating
+     and sponsoring are the same errand from the visitor's side - both are ways
+     of giving the federation money - so Donation hangs off Sponsors rather
+     than taking a ninth slot in a header that has no room for one. */
+  ['sponsors.html', 'Sponsors', [['donation.html', 'Make a Donation']]],
   ['shop.html', 'Store'],
 ];
 
 function shell({ file, title, description, active, body, scripts = [], bodyClass = '' }) {
-  const nav = NAV.map(
-    ([href, label]) =>
-      `        <a href="${href}"${href === active ? ' class="is-active"' : ''}>${label}</a>`
-  ).join('\n');
+  const link = (href, label, indent, flag) =>
+    `${indent}<a href="${href}"${href === active ? ' class="is-active"' : ''}${
+      flag ? ` data-nav-flag="${flag}"` : ''
+    }>${label}</a>`;
+
+  const nav = NAV.map(([href, label, submenu]) => {
+    if (!submenu) return link(href, label, '        ');
+
+    /* The parent reads as current when the visitor is on one of its
+       children too, so the header still says which section they are in. */
+    const inSection = href === active || submenu.some(([childHref]) => childHref === active);
+    return [
+      '        <div class="nav-group">',
+      `          <a href="${href}"${inSection ? ' class="is-active"' : ''}>${label}</a>`,
+      '          <div class="nav-submenu">',
+      ...submenu.map(([childHref, childLabel, childFlag]) =>
+        link(childHref, childLabel, '            ', childFlag)
+      ),
+      '          </div>',
+      '        </div>',
+    ].join('\n');
+  }).join('\n');
 
   const extraScripts = scripts
     .map((src) => `    <script src="./assets/${src}"></script>`)
@@ -158,7 +185,7 @@ pages.push({
   description:
     'Official Lebanon Hockey merchandise: jerseys, apparel, headwear, and collectibles supporting the federation.',
   active: 'shop.html',
-  scripts: ['store.js'],
+  scripts: ['hero.js', 'store-core.js', 'shop.js'],
   body: `      <section class="hero page-hero">
         <div class="hero-media" aria-hidden="true">
           <img src="./assets/4a228d_5fe39cffd8c84e39ac4f0d5754527a88~mv2.jpg" alt="">
@@ -192,6 +219,8 @@ pages.push({
             <p>
               Every jersey is made to order. We work hard to get them to you, and we will
               always give you an honest delivery time-frame rather than a promise we cannot keep.
+              Because each one is cut and printed for you, <strong>a jersey cannot be exchanged for
+              another colour or size once it is ordered</strong> &mdash; please choose carefully.
             </p>
             <p>
               Choose your jersey type, colour and size on each product page. If you need anything
@@ -272,7 +301,7 @@ pages.push({
   title: 'Product · Lebanon Hockey',
   description: 'Official Lebanon Hockey merchandise.',
   active: 'shop.html',
-  scripts: ['store.js'],
+  scripts: ['store-core.js', 'product.js'],
   body: `      <section class="page-section" style="padding-top:clamp(32px,4vw,56px)">
         <div class="shell" data-page="product"></div>
       </section>`,
@@ -286,7 +315,7 @@ pages.push({
   title: 'Cart · Lebanon Hockey',
   description: 'Your Lebanon Hockey shopping cart.',
   active: 'shop.html',
-  scripts: ['store.js'],
+  scripts: ['store-core.js', 'cart.js'],
   body: `      <section class="page-section" style="padding-top:clamp(32px,4vw,56px)" data-page="cart">
         <div class="shell">
           <nav class="breadcrumb">
@@ -315,7 +344,7 @@ pages.push({
   title: 'Checkout · Lebanon Hockey',
   description: 'Secure checkout for Lebanon Hockey merchandise.',
   active: 'shop.html',
-  scripts: ['store.js'],
+  scripts: ['store-core.js', 'checkout.js'],
   body: `      <section class="page-section" style="padding-top:clamp(32px,4vw,56px)" data-page="checkout">
         <div class="shell">
           <nav class="breadcrumb">
@@ -418,7 +447,7 @@ pages.push({
   title: 'Order Confirmation · Lebanon Hockey',
   description: 'Your Lebanon Hockey order confirmation.',
   active: 'shop.html',
-  scripts: ['store.js'],
+  scripts: ['confirmation.js'],
   body: `      <section class="page-section" style="padding-top:clamp(48px,6vw,88px)">
         <div class="shell">
           <div class="confirmation" data-page="confirmation"></div>
@@ -1061,8 +1090,9 @@ pages.push(
     body: `          <div class="callout">
             <p>
               <strong>In short:</strong> all sales are final. Orders cannot be returned, exchanged or
-              refunded once they are placed. The one exception is an item that arrives faulty, damaged or
-              not what you ordered &mdash; we put that right.
+              refunded once they are placed. Jerseys are custom made to order, so a jersey cannot be
+              exchanged for another colour or size. The one exception is an item that arrives faulty,
+              damaged or not what you ordered &mdash; we put that right.
             </p>
           </div>
 

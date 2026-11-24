@@ -1,0 +1,26 @@
+# Build output
+bin/
+obj/
+*.user
+
+# Secrets. User Secrets live outside the repo, but these patterns catch the
+# common ways a real value ends up inside it anyway.
+appsettings.*.local.json
+appsettings.Production.json
+*.pfx
+*.p12
+.env
+.env.*
+
+# A generated migration script may contain seeded data; regenerate it rather
+# than committing it.
+migration.sql
+
+# Data protection keys
+.aspnet-data-protection-keys/
+
+# Logs
+*.log
+
+# Visual Studio cache
+.vs/
